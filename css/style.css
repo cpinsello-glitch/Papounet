@@ -1,0 +1,378 @@
+:root {
+  color-scheme: light;
+  --bg-color: #f2f2f7;
+  --card-bg: #ffffff;
+  --text-main: #1c1c1e;
+  --text-muted: #8e8e93;
+  --accent-blue: #00bcd4; 
+  --accent-gray: #636366;
+  --border-color: #e5e5ea;
+  --header-bg: #ffffff; 
+  --badge-cyan-bg: rgba(0, 188, 212, 0.15); 
+  --badge-cyan-text: #008ba3; 
+  --badge-purple-bg: rgba(175, 82, 222, 0.15);
+  --badge-purple-text: #8c28cb;
+  --badge-yellow-bg: rgba(255, 204, 0, 0.2); 
+  --badge-yellow-text: #8a6c00; 
+  --header-height: 95px; 
+}
+
+* { 
+  box-sizing: border-box; 
+  margin: 0; 
+  padding: 0; 
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; 
+  -webkit-tap-highlight-color: transparent;
+}
+
+body { 
+  background-color: var(--bg-color); 
+  color: var(--text-main); 
+  padding-bottom: calc(90px + env(safe-area-inset-bottom)); 
+  -webkit-font-smoothing: antialiased; 
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch; 
+}
+
+/* ========================================================
+   HEADER
+   ======================================================== */
+header {
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  right: 0; 
+  padding-top: env(safe-area-inset-top); 
+  padding-bottom: 10px;
+  height: calc(var(--header-height) + env(safe-area-inset-top)); 
+  background: var(--header-bg); 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: flex-end;
+  padding-left: 16px; 
+  padding-right: 16px; 
+  z-index: 100; 
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.header-title { 
+  display: flex; 
+  flex-direction: column; 
+  justify-content: center; 
+}
+
+.title-line1 { 
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif; 
+  font-weight: 700; 
+  font-size: 1.35rem; 
+  text-transform: uppercase; 
+  letter-spacing: 0.5px; 
+  line-height: 1.1; 
+  color: var(--text-main); 
+}
+
+.title-line2 { 
+  font-family: 'Roboto Condensed', -apple-system, BlinkMacSystemFont, sans-serif; 
+  font-weight: 400; 
+  font-size: 1.15rem; 
+  line-height: 1.2; 
+  color: var(--text-main); 
+}
+
+.today-btn { 
+  background: var(--badge-cyan-bg); 
+  color: var(--badge-cyan-text); 
+  border: none; 
+  padding: 8px 14px; 
+  border-radius: 20px; 
+  font-size: 0.9rem; 
+  font-weight: 700; 
+  cursor: pointer; 
+  transition: opacity 0.2s, transform 0.1s; 
+  margin-bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.today-btn:active { 
+  opacity: 0.6; 
+  transform: scale(0.96);
+}
+
+/* Indicateur subtil de synchronisation */
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--badge-cyan-text);
+  display: inline-block;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.sync-dot.active {
+  opacity: 1;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 0.3; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
+}
+
+/* ========================================================
+   CONTAINER & WEEKS
+   ======================================================== */
+.container { 
+  padding: calc(var(--header-height) + env(safe-area-inset-top) + 16px) 16px 16px 16px; 
+  max-width: 600px; 
+  margin: 0 auto; 
+}
+
+.week-header { 
+  font-size: 0.75rem; 
+  font-weight: 600; 
+  color: var(--text-muted); 
+  text-transform: uppercase; 
+  letter-spacing: 0.5px; 
+  margin: 24px 0 8px 8px; 
+}
+
+.week-card { 
+  background: var(--card-bg); 
+  border-radius: 16px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04); 
+  overflow: hidden; 
+  transition: all 0.3s ease; 
+}
+
+.week-card.highlight { 
+  box-shadow: 0 0 0 2px var(--accent-blue), 0 4px 12px rgba(0, 188, 212, 0.3); 
+  transform: scale(1.01); 
+}
+
+.week-alert-banner {
+  background: rgba(215, 0, 21, 0.1); 
+  color: #d70015;
+  padding: 12px 16px; 
+  font-size: 0.85rem; 
+  font-weight: 700;
+  border-bottom: 1px solid rgba(215, 0, 21, 0.15);
+  display: flex; 
+  align-items: center;
+}
+
+.week-alert-icon { 
+  font-size: 1.1rem; 
+  margin-right: 8px; 
+}
+
+/* ========================================================
+   EVENT ROWS
+   ======================================================== */
+.event-row { 
+  display: flex; 
+  align-items: center; 
+  padding: 16px; 
+  border-bottom: 1px solid var(--border-color); 
+}
+
+.event-row:last-child { 
+  border-bottom: none; 
+}
+
+.date-block { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  width: 45px; 
+  margin-right: 16px; 
+  flex-shrink: 0;
+}
+
+.date-short { 
+  font-size: 0.7rem; 
+  font-weight: 700; 
+  color: var(--text-muted); 
+  text-transform: uppercase; 
+}
+
+.date-num { 
+  font-size: 1.4rem; 
+  font-weight: 400; 
+  color: var(--text-main); 
+  margin-top: -2px; 
+}
+
+.event-content { 
+  flex: 1; 
+  padding: 12px 14px; 
+  border-radius: 12px; 
+  display: flex; 
+  flex-direction: row; 
+  align-items: center; 
+  min-width: 0;
+}
+
+.event-text-container { 
+  display: flex; 
+  flex-direction: column; 
+  justify-content: center; 
+  flex: 1; 
+  min-width: 0;
+}
+
+.event-emoji { 
+  font-size: 2rem; 
+  margin-right: 14px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  flex-shrink: 0;
+}
+
+/* Panneau routier jaune / passage piéton Nolan */
+.road-sign-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.event-title { 
+  font-size: 0.95rem; 
+  font-weight: 600; 
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.event-time { 
+  font-size: 0.8rem; 
+  font-weight: 500; 
+  opacity: 0.9; 
+  margin-top: 3px; 
+}
+
+.event-desc { 
+  font-size: 0.8rem; 
+  font-style: italic; 
+  color: var(--text-muted); 
+  margin-top: 4px; 
+  line-height: 1.3; 
+  word-break: break-word;
+}
+
+/* Types d'événements */
+.type-confirmed { 
+  background: var(--badge-cyan-bg); 
+  color: var(--badge-cyan-text); 
+}
+
+.type-rdv { 
+  background: var(--badge-yellow-bg); 
+  color: var(--badge-yellow-text); 
+}
+
+.type-holiday { 
+  background: var(--badge-purple-bg); 
+  color: var(--badge-purple-text); 
+}
+
+.type-theory { 
+  background: rgba(99, 99, 102, 0.1); 
+  color: var(--accent-gray); 
+}
+
+.empty-state { 
+  padding: 24px 16px; 
+  text-align: center; 
+  color: var(--text-muted); 
+  font-size: 0.9rem; 
+  font-style: italic; 
+}
+
+/* ========================================================
+   BOTTOM BAR (Date search)
+   ======================================================== */
+.bottom-bar { 
+  position: fixed; 
+  bottom: 0; 
+  left: 0; 
+  right: 0; 
+  background: var(--card-bg); 
+  border-top: 1px solid var(--border-color); 
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) 16px; 
+  display: flex; 
+  gap: 12px; 
+  z-index: 100; 
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bottom-bar input[type="date"] { 
+  flex: 1; 
+  padding: 12px 14px; 
+  border: 1px solid var(--border-color); 
+  border-radius: 12px; 
+  font-size: 1rem; 
+  background: var(--bg-color); 
+  outline: none; 
+  color: var(--text-main); 
+  -webkit-appearance: none;
+  min-height: 46px;
+}
+
+.bottom-bar button { 
+  background: var(--badge-cyan-bg); 
+  color: var(--badge-cyan-text); 
+  border: none; 
+  padding: 0 24px; 
+  border-radius: 12px; 
+  font-size: 1rem; 
+  font-weight: 700; 
+  cursor: pointer; 
+  transition: opacity 0.2s, transform 0.1s; 
+  min-height: 46px;
+}
+
+.bottom-bar button:active { 
+  opacity: 0.6; 
+  transform: scale(0.97);
+}
+
+/* ========================================================
+   LOADER & STATUS
+   ======================================================== */
+.loader-container { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  margin-top: 60px; 
+  color: var(--text-muted); 
+}
+
+.spinner { 
+  width: 32px; 
+  height: 32px; 
+  border: 3px solid rgba(0, 188, 212, 0.2); 
+  border-top-color: var(--accent-blue); 
+  border-radius: 50%; 
+  animation: spin 0.8s linear infinite; 
+  margin-bottom: 14px; 
+}
+
+@keyframes spin { 
+  to { transform: rotate(360deg); } 
+}
+
+.status-toast {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}

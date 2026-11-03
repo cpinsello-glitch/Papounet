@@ -1,0 +1,22 @@
+# Headers Cloudflare Pages
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Caching pour les assets statiques
+/css/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/js/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/icon*.png
+  Cache-Control: public, max-age=604800
+/icon.svg
+  Cache-Control: public, max-age=604800
+
+# Service Worker et Manifest toujours à jour
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+  Cache-Control: public, max-age=3600
