@@ -379,3 +379,4 @@ function getWeekNumber(d) {
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
+
