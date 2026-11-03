@@ -1,52 +1,58 @@
 /**
- * Gestionnaire d'API et du cache local
+ * Gestionnaire d'API Cloudflare et cache local
  */
 const API = {
   /**
-   * Récupère le planning en utilisant une stratégie "Cache then Network" :
-   * Renvoie immédiatement les données en cache si disponibles, puis rafraîchit en arrière-plan.
+   * Récupère le planning depuis la fonction Cloudflare Pages (/api/planning)
+   * avec secours immédiat sur le cache et le moteur local.
    */
   async getPlanning({ onCachedData, onFreshData, onError, onSyncStatus }) {
-    // 1. Essayer de charger le cache local immédiatement
+    // 1. Charger immédiatement le cache local ou calculer en local
     const cached = this.getLocalCache();
     if (cached && cached.data && Array.isArray(cached.data) && cached.data.length > 0) {
       if (onCachedData) onCachedData(cached.data, cached.timestamp);
-    } else if (CONFIG.INITIAL_FALLBACK_DATA && CONFIG.INITIAL_FALLBACK_DATA.length > 0) {
-      // Données de démarrage initiales pour affichage immédiat
-      if (onCachedData) onCachedData(CONFIG.INITIAL_FALLBACK_DATA, Date.now());
+    } else if (typeof PlanningEngine !== 'undefined') {
+      // Calcul local immédiat (0ms d'attente)
+      const computed = PlanningEngine.compute();
+      if (onCachedData) onCachedData(computed, Date.now());
     }
 
-    // 2. Lancer la requête réseau vers Google Apps Script
+    // 2. Requête vers la fonction Cloudflare Pages
     if (onSyncStatus) onSyncStatus(true);
     
     try {
       const response = await fetch(CONFIG.API_URL, { 
         method: 'GET',
-        redirect: 'follow',
         headers: {
           'Accept': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur réseau (${response.status})`);
+        throw new Error(`Statut HTTP: ${response.status}`);
       }
 
       const freshData = await response.json();
       
-      if (!Array.isArray(freshData)) {
-        throw new Error("Format de données invalide reçu du serveur");
+      if (!Array.isArray(freshData) || freshData.length === 0) {
+        throw new Error("Format de données invalide");
       }
 
-      // Sauvegarder dans le cache local
+      // Sauvegarde dans le cache local
       this.saveLocalCache(freshData);
 
       if (onFreshData) {
         onFreshData(freshData);
       }
     } catch (err) {
-      console.warn("Échec du rafraîchissement réseau :", err);
-      if (onError) {
+      console.info("Info API Cloudflare : utilisation des données locales/calculées.", err.message);
+      
+      // Si nous n'avions pas de cache, générer le planning via le moteur local
+      if (!cached && typeof PlanningEngine !== 'undefined') {
+        const computed = PlanningEngine.compute();
+        this.saveLocalCache(computed);
+        if (onFreshData) onFreshData(computed);
+      } else if (onError) {
         onError(err, !!cached);
       }
     } finally {

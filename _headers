@@ -4,6 +4,11 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
+# API Cloudflare Functions
+/api/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=180, stale-while-revalidate=600
+
 # Caching pour les assets statiques
 /css/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
@@ -20,4 +25,3 @@
 /manifest.webmanifest
   Content-Type: application/manifest+json; charset=utf-8
   Cache-Control: public, max-age=3600
-

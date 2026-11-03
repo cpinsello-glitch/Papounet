@@ -2,24 +2,32 @@
 
 Application web mobile (PWA) de visualisation du planning de garde partagée et des repos chez Papounet.
 
+**100% hébergé et propulsé par Cloudflare** (aucune dépendance à Google Apps Script).
+
 ---
 
-## 📱 Aperçu & Fonctionnalités
+## ⚡ Architecture Cloudflare Native
+
+- **Frontend** : Hébergé sur **Cloudflare Pages** (HTML5, CSS3, JS moderne, Service Worker PWA).
+- **Backend Edge** : **Cloudflare Pages Functions** (`/functions/api/planning.js`) qui s'exécute directement sur le réseau mondial Cloudflare Workers.
+- **Zéro Google Apps Script** : Tout le calcul (cycles de 15 semaines, jours de repos théoriques, vacances scolaires, alertes et dates limites de confirmation à S-14 jours) est géré sur Cloudflare.
+- **Flux calendriers** : La fonction Cloudflare récupère et décode les flux iCal (`.ics`) directement à la volée.
+- **Double moteur de secours** : Même en cas de coupure réseau complète ou en mode avion, le moteur embarqué (`js/engine.js`) et le cache local affichent le planning instantanément (0 ms de temps de chargement).
+
+---
+
+## 📱 Fonctionnalités & Design
 
 - **Design iOS épuré** : cartes arrondies, typographie Roboto & Roboto Condensed, badges thématiques et animations douces.
-- **Affichage par semaine** :
+- **Badges selon le type d'événement** :
   - 🩵 **Garde enfants** (bleu cyan) : heures d'arrivée et de retour.
-  - 🚸 **Rendez-vous / Opérations** (jaune doré avec icône de vigilance).
+  - 🚸 **Rendez-vous / Opérations** (jaune doré avec panneau de danger écoliers).
   - 💜 **Vacances scolaires** (violet) : Toussaint, Noël, etc.
-  - 🩶 **Repos théorique** (gris) : avec mention de confirmation à S-14 jours.
+  - 🩶 **Repos théorique** (gris) : mention "À confirmer à S -14 jours".
   - 🚨 **Bannière d'alerte** dynamique pour les semaines avec changement potentiel.
 - **Navigation rapide** :
-  - Bouton avec date du jour en haut à droite (ex: `3 nov`) pour défiler instantanément sur la semaine actuelle.
-  - Sélecteur de date en bas avec bouton **Go** pour sauter directement sur n'importe quelle semaine dans l'horizon calculé.
-- **Fonctionnement hors-ligne & vitesse éclair** :
-  - Cache local instantané (`localStorage`) : la page s'ouvre sans aucun délai d'attente.
-  - Rafraîchissement automatique en arrière-plan depuis l'API Google Apps Script avec indicateur discret.
-  - Service Worker et PWA pour l'installation sur l'écran d'accueil (iPhone et Android).
+  - Bouton avec date du jour en haut à droite (ex: `3 nov`) pour défiler instantanément sur la semaine en cours.
+  - Sélecteur de date en bas avec bouton **Go** pour sauter directement sur n'importe quelle semaine dans l'horizon calculé (8 mois).
 
 ---
 
@@ -27,78 +35,57 @@ Application web mobile (PWA) de visualisation du planning de garde partagée et 
 
 ```text
 Papounet/
-├── index.html               # Page principale (HTML5 sémantique, PWA ready)
-├── manifest.webmanifest     # Manifeste PWA pour installation mobile
-├── sw.js                    # Service Worker (gestion du cache et offline)
-├── _headers                 # Configuration du cache pour Cloudflare Pages
-├── icon.svg                 # Icône vectorielle haute résolution
-├── icon.png                 # Icône PWA 256x256
-├── icon-192.png             # Icône PWA 192x192
-├── icon-512.png             # Icône PWA 512x512
+├── functions/
+│   └── api/
+│       └── planning.js      # Backend Edge Cloudflare Pages Function (/api/planning)
 ├── css/
 │   └── style.css            # Feuilles de style (design fidèle aux maquettes)
 ├── js/
-│   ├── config.js            # Configuration générale & URL de l'API
-│   ├── api.js               # Gestion du cache et des appels API
-│   └── app.js               # Logique d'affichage, recherche et défilement
-└── backend/
-    └── code.gs              # Code source du backend Google Apps Script
+│   ├── config.js            # Configuration de l'application
+│   ├── engine.js            # Moteur de calcul calendrier client & offline
+│   ├── api.js               # Gestionnaire API Cloudflare & Cache local
+│   └── app.js               # Rendu dynamique, recherche et défilement
+├── index.html               # Page principale (HTML5 sémantique, PWA)
+├── manifest.webmanifest     # Manifeste PWA pour installation smartphone
+├── sw.js                    # Service Worker (mode hors-ligne & cache Edge)
+├── _headers                 # En-têtes Cloudflare Pages (sécurité & cache)
+├── icon.svg                 # Icône vectorielle moderne
+└── icon.png, icon-192, 512  # Icônes de l'application
 ```
 
 ---
 
-## 🚀 Déploiement : GitHub & Cloudflare Pages
+## 🚀 Déploiement & Synchronisation Cloudflare
 
-### 1. Créer le dépôt sur GitHub et pousser le code
+Le projet est configuré pour se déployer automatiquement à chaque `git push`.
 
-Dans un terminal à la racine du projet :
+### 1. Pousser les modifications sur GitHub
 
 ```bash
-# Vérifier l'état
-git status
-
-# Ajouter tous les fichiers et faire le premier commit
 git add .
-git commit -m "feat: initialisation du projet Papounet moderne"
-
-# Créer votre dépôt sur github.com (ex: nom "Papounet")
-# Puis liez votre dépôt distant et poussez :
-git remote add origin https://github.com/cpinsello-glitch/Papounet.git
-git branch -M main
-git push -u origin main
+git commit -m "feat: migration complète vers Cloudflare Pages & Functions (adieu Google Apps Script)"
+git push origin main
 ```
 
----
-
-### 2. Déployer sur Cloudflare Pages
-
-1. Rendez-vous sur votre tableau de bord [Cloudflare Dashboard](https://dash.cloudflare.com/) > **Workers & Pages**.
-2. Cliquez sur **Create application** > onglet **Pages** > **Connect to Git**.
-3. Sélectionnez votre dépôt GitHub **`Papounet`**.
-4. Configurez les options de build :
-   - **Project name** : `papounet` (ou le nom de votre choix)
-   - **Production branch** : `main`
-   - **Framework preset** : `None`
-   - **Build command** : *(laisser vide)*
-   - **Build output directory** : `.` *(ou laisser vide / racine)*
-5. Cliquez sur **Save and Deploy**.
-
-> ✨ En quelques secondes, votre application est en ligne avec HTTPS automatique, CDN mondial ultra-rapide et mise à jour automatique à chaque `git push` !
+Cloudflare Pages détecte automatiquement le commit sur GitHub et déploie le site ainsi que la fonction `/api/planning` en quelques secondes.
 
 ---
 
-### 3. Backend Google Apps Script (si besoin de modification)
+### 2. Configuration des flux de calendriers dans Cloudflare (Optionnel)
 
-Le code dans `backend/code.gs` est déployé en tant qu'**Application Web Google Apps Script** :
-- **Exécuter en tant que** : *Moi*
-- **Qui a accès** : *Tout le monde (Anyone)*
+Si vous souhaitez connecter vos calendriers Google sans passer par Apps Script :
 
-L'URL de production est définie dans `js/config.js` (`API_URL`). Si vous redéployez votre script, mettez simplement à jour cette variable.
+1. Dans Google Calendar, récupérez l'**Adresse secrète au format iCal** (ou publique) de vos calendriers.
+2. Dans le tableau de bord [Cloudflare](https://dash.cloudflare.com/) > **Workers & Pages** > votre projet **Papounet** > **Settings** > **Environment variables**.
+3. Ajoutez les variables (facultatif) :
+   - `CALENDAR_ICAL_URL` : URL de votre calendrier de garde.
+   - `CALENDAR_RDV_ICAL_URL` : URL de votre calendrier des rendez-vous.
+
+Si ces variables ne sont pas renseignées, la fonction Cloudflare utilise les identifiants par défaut et effectue tous les calculs automatiquement.
 
 ---
 
-### 4. Installer sur smartphone (PWA)
+### 3. Installation sur Smartphone (PWA)
 
-- **Sur iPhone (Safari)** : appuyez sur l'icône de partage ⬆️ > **Sur l'écran d'accueil**.
-- **Sur Android (Chrome)** : appuyez sur le menu (trois points) > **Ajouter à l'écran d'accueil** ou **Installer l'application**.
-
+- **Sur iPhone (Safari)** : appuyez sur le bouton Partager ⬆️ > **Sur l'écran d'accueil**.
+- **Sur Android (Chrome)** : appuyez sur les 3 points > **Ajouter à l'écran d'accueil**.
