@@ -1,5 +1,5 @@
 /**
- * Application Papounet 🥰
+ * Application Papounet
  */
 
 let planningData = [];
@@ -8,15 +8,13 @@ let planningData = [];
  * Gestion automatique du mode sombre selon le lever/coucher du soleil
  */
 const SolarTheme = {
-  DEFAULT_LAT: 46.6, // France moyenne
+  DEFAULT_LAT: 46.6, // France métropolitaine
   DEFAULT_LON: 2.2,
 
   init() {
     this.applyTheme();
-    // Re-vérifier chaque minute
     setInterval(() => this.applyTheme(), 60000);
 
-    // Si la géolocalisation est disponible, affiner les heures locales exactes
     if ('geolocation' in navigator) {
       try {
         navigator.geolocation.getCurrentPosition(
@@ -36,8 +34,6 @@ const SolarTheme = {
     const now = new Date();
     const times = this.getSunTimes(now, this.DEFAULT_LAT, this.DEFAULT_LON);
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    
-    // Nuit si avant le lever du soleil ou après le coucher du soleil
     return nowMinutes < times.sunriseMinutes || nowMinutes >= times.sunsetMinutes;
   },
 
@@ -46,9 +42,8 @@ const SolarTheme = {
     const dayOfYear = Math.floor((date - startOfYear) / 86400000);
     const rad = Math.PI / 180;
 
-    // Déclinaison solaire approximative
     const decl = 23.45 * Math.sin(rad * (360 / 365) * (dayOfYear - 81));
-    const zenith = 90.833; // Lever/coucher astronomique standard avec réfraction
+    const zenith = 90.833;
 
     let cosH = (Math.cos(rad * zenith) - Math.sin(rad * lat) * Math.sin(rad * decl)) /
                (Math.cos(rad * lat) * Math.cos(rad * decl));
@@ -91,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Met à jour le bouton Aujourd'hui (ex: "3 nov") dans la barre inférieure
+ * Met à jour le bouton Aujourd'hui (date centrée)
  */
 function updateTodayButton() {
   const today = new Date();
@@ -108,7 +103,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=4').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=5').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -192,7 +187,6 @@ function renderPlanning(data) {
           ? `<div class="event-time">${escapeHtml(item.time)}</div>` 
           : '';
 
-        // Icône ampoule pour les RDV des enfants
         let iconHtml = '';
         if (item.type === 'rdv') {
           iconHtml = `<div class="event-emoji">💡</div>`;
@@ -260,15 +254,19 @@ function parseLocalDate(str) {
 }
 
 /**
- * Recherche d'une date
+ * Recherche d'une date (avec vidage immédiat du champ lors du clic sur Go)
  */
 function searchDate() {
   const inputEl = document.getElementById('searchDate');
   if (!inputEl || !inputEl.value) return;
 
-  const targetDate = parseLocalDate(inputEl.value);
+  const rawValue = inputEl.value;
+
+  // La date disparaît immédiatement du formulaire dès le clic sur Go
+  inputEl.value = '';
   inputEl.blur();
 
+  const targetDate = parseLocalDate(rawValue);
   if (!targetDate || isNaN(targetDate.getTime())) return;
 
   const found = planningData.find((w) => {
@@ -287,7 +285,7 @@ function searchDate() {
 }
 
 /**
- * Défilement fluide vers une semaine
+ * Défilement fluide vers une semaine en laissant visible l'en-tête de semaine sous la partie floue
  */
 function scrollToTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -298,7 +296,10 @@ function scrollToTarget(elementId) {
 
   const headerEl = el.previousElementSibling;
   const targetEl = (headerEl && headerEl.classList.contains('week-header')) ? headerEl : el;
-  const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - 16;
+  
+  // Dégagement suffisant pour laisser la ligne de semaine et la date visibles sous la partie floue / encoche
+  const topClearance = 68;
+  const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - topClearance;
 
   window.scrollTo({
     top: Math.max(0, offsetPosition),
@@ -311,7 +312,7 @@ function scrollToTarget(elementId) {
 }
 
 /**
- * Défilement vers aujourd'hui
+ * Défilement vers la date du jour
  */
 function scrollToCurrentWeek() {
   const now = new Date();
