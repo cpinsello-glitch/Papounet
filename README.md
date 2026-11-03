@@ -101,3 +101,4 @@ L'URL de production est définie dans `js/config.js` (`API_URL`). Si vous redép
 
 - **Sur iPhone (Safari)** : appuyez sur l'icône de partage ⬆️ > **Sur l'écran d'accueil**.
 - **Sur Android (Chrome)** : appuyez sur le menu (trois points) > **Ajouter à l'écran d'accueil** ou **Installer l'application**.
+
