@@ -299,7 +299,7 @@ function searchDate() {
 }
 
 /**
- * Défilement fluide vers une semaine (dégagement sous la barre d'état)
+ * Défilement fluide vers une semaine (dégagement de 92px sous la barre d'état)
  */
 function scrollToTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -311,8 +311,8 @@ function scrollToTarget(elementId) {
   const headerEl = el.previousElementSibling;
   const targetEl = (headerEl && headerEl.classList.contains('week-header')) ? headerEl : el;
   
-  // Dégagement précis sous la barre d'état
-  const topClearance = 55;
+  // Dégagement net pour que le titre de la semaine soit parfaitement visible sous la barre d'état
+  const topClearance = 92;
   const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - topClearance;
 
   window.scrollTo({

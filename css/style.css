@@ -1,7 +1,6 @@
 :root {
   color-scheme: light;
   --bg-color: #f2f2f7;
-  --bg-blur: rgba(242, 242, 247, 0.85);
   --card-bg: #ffffff;
   --text-main: #1c1c1e;
   --text-muted: #8e8e93;
@@ -22,7 +21,6 @@
 html.dark {
   color-scheme: dark;
   --bg-color: #000000;
-  --bg-blur: rgba(0, 0, 0, 0.85);
   --card-bg: #1c1c1e;
   --text-main: #f2f2f7;
   --text-muted: #8e8e93;
@@ -77,31 +75,19 @@ body {
 }
 
 /* ========================================================
-   VOILE SOUS LA BARRE D'ÉTAT (Strictement limité au haut)
-   ======================================================== */
-.top-blur-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-top);
-  background: var(--bg-blur);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  z-index: 90;
-  pointer-events: none;
-}
-
-/* ========================================================
    CONTAINER & WEEKS
    ======================================================== */
 .container { 
-  padding: calc(env(safe-area-inset-top) + 20px) 16px calc(125px + env(safe-area-inset-bottom)) 16px; 
+  /* Dégagement net sous l'encoche et la barre d'état iOS */
+  padding-top: calc(env(safe-area-inset-top) + 42px);
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: calc(115px + env(safe-area-inset-bottom)); 
   max-width: 600px; 
   margin: 0 auto; 
 }
 
-/* Espacement accru entre les semaines */
+/* Espacement entre les semaines */
 .week-header { 
   font-size: 0.75rem; 
   font-weight: 600; 
@@ -273,7 +259,7 @@ body {
 }
 
 /* ========================================================
-   BOTTOM BAR (Formulaire & Navigation en bas)
+   BOTTOM BAR (Rythme vertical harmonisé)
    ======================================================== */
 .bottom-bar { 
   position: fixed; 
@@ -282,10 +268,11 @@ body {
   right: 0; 
   background: var(--card-bg); 
   border-top: 1px solid var(--border-color); 
-  padding-top: 12px;
+  /* Espaces : 10px en haut, 10px entre formulaire et texte, 20px en bas (le double) */
+  padding-top: 10px;
   padding-left: 16px;
   padding-right: 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom)); 
+  padding-bottom: max(20px, calc(env(safe-area-inset-bottom) * 0.6)); 
   z-index: 100; 
   backdrop-filter: blur(20px); 
   -webkit-backdrop-filter: blur(20px); 
@@ -305,7 +292,7 @@ body {
   align-items: center; 
 }
 
-/* Harmonisation stricte de la hauteur à 46px */
+/* Hauteur uniforme à 46px */
 .bottom-bar input[type="date"],
 .bottom-bar button#searchBtn,
 .bottom-bar .today-btn {
@@ -403,7 +390,6 @@ body {
   to { opacity: 1; transform: scale(1.2); } 
 }
 
-/* Texte sous le formulaire parfaitement harmonisé */
 .footer-credit { 
   font-size: 0.74rem; 
   color: var(--text-muted); 
