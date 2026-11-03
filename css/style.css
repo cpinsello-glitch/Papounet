@@ -15,6 +15,48 @@
   --badge-yellow-text: #8a6c00; 
 }
 
+/* ========================================================
+   MODE NUIT AUTOMATIQUE (Lever/Coucher du soleil)
+   ======================================================== */
+html.dark {
+  color-scheme: dark;
+  --bg-color: #000000;
+  --card-bg: #1c1c1e;
+  --text-main: #f2f2f7;
+  --text-muted: #8e8e93;
+  --accent-blue: #00bcd4;
+  --accent-gray: #aeaeb2;
+  --border-color: #2c2c2e;
+  --badge-cyan-bg: rgba(0, 188, 212, 0.22);
+  --badge-cyan-text: #4dd0e1;
+  --badge-purple-bg: rgba(175, 82, 222, 0.25);
+  --badge-purple-text: #d084f7;
+  --badge-yellow-bg: rgba(255, 204, 0, 0.25);
+  --badge-yellow-text: #ffd54f;
+}
+
+html.dark .bottom-bar {
+  background: rgba(28, 28, 30, 0.95);
+  border-top: 1px solid #2c2c2e;
+}
+
+html.dark .bottom-bar input[type="date"] {
+  background: #2c2c2e;
+  color: #f2f2f7;
+  border-color: #3a3a3c;
+  color-scheme: dark;
+}
+
+html.dark .week-alert-banner {
+  background: rgba(215, 0, 21, 0.2);
+  color: #ff453a;
+  border-bottom: 1px solid rgba(215, 0, 21, 0.3);
+}
+
+html.dark .empty-state {
+  color: #8e8e93;
+}
+
 * { 
   box-sizing: border-box; 
   margin: 0; 
@@ -29,6 +71,7 @@ body {
   -webkit-font-smoothing: antialiased; 
   -moz-osx-font-smoothing: grayscale;
   -webkit-overflow-scrolling: touch; 
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 /* ========================================================
@@ -56,7 +99,7 @@ body {
 .week-card { 
   background: var(--card-bg); 
   border-radius: 16px; 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04); 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06); 
   overflow: hidden; 
   transition: all 0.3s ease; 
 }
@@ -219,6 +262,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  transition: background-color 0.4s ease, border-color 0.4s ease;
 }
 
 .bottom-bar-inner {
@@ -293,7 +337,6 @@ body {
   transform: scale(0.97);
 }
 
-/* Indicateur subtil de synchronisation */
 .sync-dot {
   width: 6px;
   height: 6px;
@@ -314,7 +357,6 @@ body {
   to { opacity: 1; transform: scale(1.2); }
 }
 
-/* Texte sous le formulaire */
 .footer-credit {
   font-size: 0.78rem;
   color: var(--text-muted);

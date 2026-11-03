@@ -1,28 +1,28 @@
 {
-  "name": "Papounet 🥰 - Les Petits Loulous",
-  "short_name": "Papounet 🥰",
+  "name": "Papounet",
+  "short_name": "Papounet",
   "description": "Planning de garde et repos partagé chez Papounet",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f2f2f7",
+  "background_color": "#000000",
   "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "icon-192.png?v=2",
+      "src": "icon-192.png?v=4",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png?v=2",
+      "src": "icon-512.png?v=4",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon.png?v=2",
+      "src": "icon.png?v=4",
       "sizes": "256x256",
       "type": "image/png"
     }

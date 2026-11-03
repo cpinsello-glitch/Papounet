@@ -5,9 +5,85 @@
 let planningData = [];
 
 /**
- * Initialisation
+ * Gestion automatique du mode sombre selon le lever/coucher du soleil
+ */
+const SolarTheme = {
+  DEFAULT_LAT: 46.6, // France moyenne
+  DEFAULT_LON: 2.2,
+
+  init() {
+    this.applyTheme();
+    // Re-vérifier chaque minute
+    setInterval(() => this.applyTheme(), 60000);
+
+    // Si la géolocalisation est disponible, affiner les heures locales exactes
+    if ('geolocation' in navigator) {
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            this.DEFAULT_LAT = pos.coords.latitude;
+            this.DEFAULT_LON = pos.coords.longitude;
+            this.applyTheme();
+          },
+          () => {},
+          { timeout: 4000, maximumAge: 86400000 }
+        );
+      } catch (e) {}
+    }
+  },
+
+  isNightTime() {
+    const now = new Date();
+    const times = this.getSunTimes(now, this.DEFAULT_LAT, this.DEFAULT_LON);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    // Nuit si avant le lever du soleil ou après le coucher du soleil
+    return nowMinutes < times.sunriseMinutes || nowMinutes >= times.sunsetMinutes;
+  },
+
+  getSunTimes(date, lat, lon) {
+    const startOfYear = new Date(date.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((date - startOfYear) / 86400000);
+    const rad = Math.PI / 180;
+
+    // Déclinaison solaire approximative
+    const decl = 23.45 * Math.sin(rad * (360 / 365) * (dayOfYear - 81));
+    const zenith = 90.833; // Lever/coucher astronomique standard avec réfraction
+
+    let cosH = (Math.cos(rad * zenith) - Math.sin(rad * lat) * Math.sin(rad * decl)) /
+               (Math.cos(rad * lat) * Math.cos(rad * decl));
+
+    if (cosH > 1) cosH = 1;
+    if (cosH < -1) cosH = -1;
+
+    const H = Math.acos(cosH) / rad;
+    const tzOffsetHours = -date.getTimezoneOffset() / 60;
+
+    const sunriseHours = 12 - (H / 15) - (lon / 15) + tzOffsetHours;
+    const sunsetHours = 12 + (H / 15) - (lon / 15) + tzOffsetHours;
+
+    return {
+      sunriseMinutes: Math.round(sunriseHours * 60),
+      sunsetMinutes: Math.round(sunsetHours * 60)
+    };
+  },
+
+  applyTheme() {
+    const isDark = this.isNightTime();
+    document.documentElement.classList.toggle('dark', isDark);
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', isDark ? '#000000' : '#ffffff');
+    }
+  }
+};
+
+/**
+ * Initialisation au chargement
  */
 document.addEventListener('DOMContentLoaded', () => {
+  SolarTheme.init();
   updateTodayButton();
   initServiceWorker();
   initSearch();
@@ -15,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Met à jour le bouton Aujourd'hui (situé à droite de Go dans la barre du bas)
+ * Met à jour le bouton Aujourd'hui (ex: "3 nov") dans la barre inférieure
  */
 function updateTodayButton() {
   const today = new Date();
@@ -28,16 +104,16 @@ function updateTodayButton() {
 }
 
 /**
- * Service Worker avec mise à jour automatique
+ * Service Worker
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=3').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=4').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-            console.log('Nouvelle version active.');
+            console.log('Nouvelle version prête.');
           }
         });
       });
@@ -174,7 +250,7 @@ function initSearch() {
 }
 
 /**
- * Parser une date locale YYYY-MM-DD sans décalage UTC
+ * Parser une date locale sans décalage UTC
  */
 function parseLocalDate(str) {
   if (!str) return null;
@@ -184,7 +260,7 @@ function parseLocalDate(str) {
 }
 
 /**
- * Recherche d'une date et défilement
+ * Recherche d'une date
  */
 function searchDate() {
   const inputEl = document.getElementById('searchDate');
@@ -211,7 +287,7 @@ function searchDate() {
 }
 
 /**
- * Défilement fluide vers une semaine (sans décalage de header fixe)
+ * Défilement fluide vers une semaine
  */
 function scrollToTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -235,7 +311,7 @@ function scrollToTarget(elementId) {
 }
 
 /**
- * Défilement vers la date du jour
+ * Défilement vers aujourd'hui
  */
 function scrollToCurrentWeek() {
   const now = new Date();

@@ -1,7 +1,5 @@
 /**
- * Moteur de calcul du planning côté client
- * Permet d'exécuter l'ensemble de la logique calendrier directement dans le navigateur
- * en cas d'absence de connexion ou pour un rendu instantané.
+ * Moteur de calcul et données de base du planning
  */
 const PlanningEngine = {
   ANCHOR_DATE: new Date(2026, 8, 21),
@@ -20,8 +18,22 @@ const PlanningEngine = {
     { title: "Noël",      start: "2026-12-21", end: "2026-12-27" }
   ],
 
-  FIXED_RDV: [
-    { date: "2026-11-17", title: "Opération Nolan", time: "", type: "rdv", description: "" }
+  // Événements confirmés connus pour les premières semaines
+  CONFIRMED_EVENTS: [
+    // Semaine 45
+    { date: "2026-11-06", title: "Je viens chercher les enfants", time: "à 17h00", type: "confirmed" },
+    { date: "2026-11-08", title: "Je ramène les enfants", time: "à 11h00", type: "confirmed" },
+
+    // Semaine 46
+    { date: "2026-11-15", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-11-15", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 47
+    { date: "2026-11-17", title: "Opération Nolan", time: "", type: "rdv" },
+    { date: "2026-11-18", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-11-18", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+    { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
   ],
 
   getConfirmationDeadline(now) {
@@ -58,7 +70,7 @@ const PlanningEngine = {
     });
   },
 
-  compute(customEvents = []) {
+  compute() {
     const cycle = this.CYCLE_REPOS;
     const holidays = this.getHolidays(); 
     const now = new Date();
@@ -72,8 +84,6 @@ const PlanningEngine = {
 
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + this.MONTHS_HORIZON);
-
-    const allRdv = [...this.FIXED_RDV, ...customEvents.filter(e => e.type === 'rdv')];
 
     const weeks = [];
     let iterDate = new Date(startDate);
@@ -112,28 +122,25 @@ const PlanningEngine = {
 
         const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
 
-        // Recherche d'un RDV pour ce jour
-        const matchedRdv = allRdv.filter(ev => {
-          if (!ev.date) return false;
+        // Recherche des événements connus
+        const matched = this.CONFIRMED_EVENTS.filter(ev => {
           const [y, m, d] = ev.date.split('-').map(Number);
           return d === currentD.getDate() && (m - 1) === currentD.getMonth() && y === currentD.getFullYear();
         });
 
-        if (matchedRdv.length > 0) {
-          matchedRdv.forEach(ev => {
+        if (matched.length > 0) {
+          matched.forEach(ev => {
             weekData.items.push({
               dayShort: shortDays[dayIdx],
               dayNum: this.pad(currentD.getDate()),
               title: ev.title,
               time: ev.time || "",
               hasTime: !!ev.time,
-              type: 'rdv',
-              description: ev.description || ""
+              type: ev.type,
+              description: ""
             });
           });
-        }
-
-        if (holidayMatch) {
+        } else if (holidayMatch) {
           weekData.items.push({ 
             dayShort: shortDays[dayIdx], 
             dayNum: this.pad(currentD.getDate()), 
@@ -143,41 +150,16 @@ const PlanningEngine = {
             type: 'holiday', 
             description: "" 
           });
-        } else if (restDayIndexes.includes(dayIdx)) {
-          if (isConfirmedWeek) {
-            // Heures de garde par défaut pour les semaines confirmées (sans texte "repos confirmé")
-            if (dayIdx === 4) { // Vendredi
-              weekData.items.push({ 
-                dayShort: shortDays[dayIdx], 
-                dayNum: this.pad(currentD.getDate()), 
-                title: "Je viens chercher les enfants", 
-                time: "à 17h00", 
-                hasTime: true, 
-                type: 'confirmed', 
-                description: "" 
-              });
-            } else if (dayIdx === 6) { // Dimanche
-              weekData.items.push({ 
-                dayShort: shortDays[dayIdx], 
-                dayNum: this.pad(currentD.getDate()), 
-                title: "Je ramène les enfants", 
-                time: "à 11h00", 
-                hasTime: true, 
-                type: 'confirmed', 
-                description: "" 
-              });
-            }
-          } else {
-            weekData.items.push({ 
-              dayShort: shortDays[dayIdx], 
-              dayNum: this.pad(currentD.getDate()), 
-              title: "Repos théorique", 
-              time: "À confirmer à S -14 jours", 
-              hasTime: true, 
-              type: 'theory', 
-              description: "" 
-            });
-          }
+        } else if (!isConfirmedWeek && restDayIndexes.includes(dayIdx)) {
+          weekData.items.push({ 
+            dayShort: shortDays[dayIdx], 
+            dayNum: this.pad(currentD.getDate()), 
+            title: "Repos théorique", 
+            time: "À confirmer à S -14 jours", 
+            hasTime: true, 
+            type: 'theory', 
+            description: "" 
+          });
         }
       }
 
