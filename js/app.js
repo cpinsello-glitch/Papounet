@@ -8,7 +8,7 @@ let planningData = [];
  * Gestion automatique du mode sombre selon le lever/coucher du soleil
  */
 const SolarTheme = {
-  DEFAULT_LAT: 46.6, // France métropolitaine
+  DEFAULT_LAT: 46.6,
   DEFAULT_LON: 2.2,
 
   init() {
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Met à jour le bouton Aujourd'hui (date centrée)
+ * Met à jour le bouton Aujourd'hui (date parfaitement centrée)
  */
 function updateTodayButton() {
   const today = new Date();
@@ -103,7 +103,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=5').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=6').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -182,7 +182,22 @@ function renderPlanning(data) {
         `;
       }
 
-      week.items.forEach((item) => {
+      week.items.forEach((item, index) => {
+        const nextItem = week.items[index + 1];
+        const prevItem = week.items[index - 1];
+
+        // Vérifier si 2 événements ont lieu le même jour (ex: DIM 15)
+        const isSameDayAsNext = nextItem && nextItem.dayNum === item.dayNum && nextItem.dayShort === item.dayShort;
+        const isSameDayAsPrev = prevItem && prevItem.dayNum === item.dayNum && prevItem.dayShort === item.dayShort;
+
+        let rowClasses = 'event-row';
+        if (isSameDayAsNext) {
+          rowClasses += ' no-divider';
+        }
+        if (isSameDayAsPrev) {
+          rowClasses += ' is-same-day-follow';
+        }
+
         const timeHtml = (item.hasTime && item.time) 
           ? `<div class="event-time">${escapeHtml(item.time)}</div>` 
           : '';
@@ -197,7 +212,7 @@ function renderPlanning(data) {
           : '';
 
         cardHtml += `
-          <div class="event-row">
+          <div class="${rowClasses}">
             <div class="date-block">
               <span class="date-short">${escapeHtml(item.dayShort)}</span>
               <span class="date-num">${escapeHtml(item.dayNum)}</span>
@@ -244,7 +259,7 @@ function initSearch() {
 }
 
 /**
- * Parser une date locale sans décalage UTC
+ * Parser une date locale
  */
 function parseLocalDate(str) {
   if (!str) return null;
@@ -254,7 +269,7 @@ function parseLocalDate(str) {
 }
 
 /**
- * Recherche d'une date (avec vidage immédiat du champ lors du clic sur Go)
+ * Recherche d'une date (avec vidage immédiat lors du clic sur Go)
  */
 function searchDate() {
   const inputEl = document.getElementById('searchDate');
@@ -262,7 +277,6 @@ function searchDate() {
 
   const rawValue = inputEl.value;
 
-  // La date disparaît immédiatement du formulaire dès le clic sur Go
   inputEl.value = '';
   inputEl.blur();
 
@@ -285,7 +299,7 @@ function searchDate() {
 }
 
 /**
- * Défilement fluide vers une semaine en laissant visible l'en-tête de semaine sous la partie floue
+ * Défilement fluide vers une semaine (dégagement sous la barre d'état)
  */
 function scrollToTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -297,8 +311,8 @@ function scrollToTarget(elementId) {
   const headerEl = el.previousElementSibling;
   const targetEl = (headerEl && headerEl.classList.contains('week-header')) ? headerEl : el;
   
-  // Dégagement suffisant pour laisser la ligne de semaine et la date visibles sous la partie floue / encoche
-  const topClearance = 68;
+  // Dégagement précis sous la barre d'état
+  const topClearance = 55;
   const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - topClearance;
 
   window.scrollTo({
@@ -312,7 +326,7 @@ function scrollToTarget(elementId) {
 }
 
 /**
- * Défilement vers la date du jour
+ * Défilement vers aujourd'hui
  */
 function scrollToCurrentWeek() {
   const now = new Date();
