@@ -1,17 +1,17 @@
-const CACHE_NAME = 'papounet-cloudflare-v1';
+const CACHE_NAME = 'papounet-v3';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './css/style.css',
-  './js/config.js',
-  './js/engine.js',
-  './js/api.js',
-  './js/app.js',
-  './manifest.webmanifest',
-  './icon.svg',
-  './icon.png',
-  './icon-192.png',
-  './icon-512.png'
+  './css/style.css?v=2',
+  './js/config.js?v=2',
+  './js/engine.js?v=2',
+  './js/api.js?v=2',
+  './js/app.js?v=2',
+  './manifest.webmanifest?v=2',
+  './icon.png?v=2',
+  './icon-192.png?v=2',
+  './icon-512.png?v=2',
+  './apple-touch-icon.png?v=2'
 ];
 
 self.addEventListener('install', (event) => {
@@ -39,7 +39,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Pour l'API Cloudflare (/api/planning) : réseau d'abord, puis cache
   if (url.pathname.includes('/api/planning')) {
     event.respondWith(
       fetch(event.request)
@@ -57,7 +56,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Fichiers statiques : Cache d'abord, rafraîchissement réseau
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {

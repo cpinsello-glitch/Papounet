@@ -4,27 +4,22 @@
 
 let planningData = [];
 
-// Panneau de danger routier SVG (silhouette écoliers / enfants traversant) pour les RDV / Opération
+// Panneau de danger routier SVG (silhouette écoliers / enfants)
 const ROAD_SIGN_SVG = `
 <svg class="road-sign-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Attention">
-  <!-- Panneau losange jaune avec bordure noire -->
   <rect x="50" y="5" width="62" height="62" rx="8" transform="rotate(45 50 5)" fill="#FFD54F" stroke="#212121" stroke-width="5" />
-  <!-- Silhouette deux enfants traversant -->
   <g fill="#212121">
-    <!-- Grand enfant -->
     <circle cx="58" cy="40" r="5" />
     <path d="M54 47 L62 47 L64 62 L60 62 L59 55 L57 65 L53 65 L55 52 L52 50 Z" />
-    <!-- Petit enfant tenant la main -->
     <circle cx="42" cy="46" r="4" />
     <path d="M38 52 L45 52 L46 64 L43 64 L42 58 L41 65 L37 65 L39 56 L36 54 Z" />
-    <!-- Ligne de sol / passage piéton -->
     <rect x="30" y="69" width="40" height="3" rx="1.5" />
   </g>
 </svg>
 `;
 
 /**
- * Initialisation au chargement de la page
+ * Initialisation
  */
 document.addEventListener('DOMContentLoaded', () => {
   updateTodayButton();
@@ -34,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Met à jour le texte du bouton Aujourd'hui dans le header (ex: "3 nov")
+ * Met à jour le bouton Aujourd'hui (ex: "3 nov")
  */
 function updateTodayButton() {
   const today = new Date();
@@ -47,20 +42,25 @@ function updateTodayButton() {
 }
 
 /**
- * Enregistrement du Service Worker pour le mode hors-ligne et PWA
+ * Service Worker avec mise à jour automatique
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('Service Worker enregistré avec succès:', reg.scope))
-        .catch((err) => console.log('Échec enregistrement Service Worker:', err));
-    });
+    navigator.serviceWorker.register('./sw.js?v=2').then((reg) => {
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+            console.log('Nouvelle version prête, rafraîchissement silencieux.');
+          }
+        });
+      });
+    }).catch((err) => console.log('Erreur SW:', err));
   }
 }
 
 /**
- * Chargement des données avec affichage immédiat du cache + mise à jour réseau
+ * Chargement et synchronisation du planning
  */
 function loadPlanning() {
   const container = document.getElementById('timeline');
@@ -76,13 +76,9 @@ function loadPlanning() {
     onError: (err, hasCache) => {
       console.warn("Erreur API :", err);
       if (!hasCache) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <p>Impossible de joindre le calendrier.</p>
-            <p style="margin-top: 8px; font-size: 0.8rem;">Vérifiez votre connexion internet ou réessayez dans un instant.</p>
-            <button onclick="loadPlanning()" style="margin-top: 14px; background: var(--badge-cyan-bg); color: var(--badge-cyan-text); border: none; padding: 8px 16px; border-radius: 12px; font-weight: 700; cursor: pointer;">Réessayer</button>
-          </div>
-        `;
+        // En cas d'erreur totale, calculer le planning localement
+        const localData = PlanningEngine.compute();
+        renderPlanning(localData);
       }
     },
     onSyncStatus: (isSyncing) => {
@@ -95,7 +91,7 @@ function loadPlanning() {
 }
 
 /**
- * Génère le DOM pour toutes les semaines
+ * Rendu du planning dans le DOM
  */
 function renderPlanning(data) {
   if (!data || !Array.isArray(data) || data.length === 0) return;
@@ -107,13 +103,11 @@ function renderPlanning(data) {
   const fragment = document.createDocumentFragment();
 
   data.forEach((week) => {
-    // En-tête de la semaine
     const header = document.createElement('div');
     header.className = 'week-header';
     header.innerText = week.title;
     fragment.appendChild(header);
 
-    // Carte de la semaine
     const card = document.createElement('div');
     card.className = 'week-card';
     card.id = week.weekId;
@@ -123,7 +117,6 @@ function renderPlanning(data) {
     } else {
       let cardHtml = '';
 
-      // Alerte éventuelle
       if (week.hasAlert) {
         cardHtml += `
           <div class="week-alert-banner">
@@ -133,7 +126,6 @@ function renderPlanning(data) {
         `;
       }
 
-      // Événements de la semaine
       week.items.forEach((item) => {
         const timeHtml = (item.hasTime && item.time) 
           ? `<div class="event-time">${escapeHtml(item.time)}</div>` 
@@ -141,7 +133,6 @@ function renderPlanning(data) {
 
         let iconHtml = '';
         if (item.type === 'rdv') {
-          // Si c'est un RDV, afficher l'icône de signalisation routière
           iconHtml = `<div class="event-emoji">${ROAD_SIGN_SVG}</div>`;
         }
 
@@ -177,34 +168,52 @@ function renderPlanning(data) {
 }
 
 /**
- * Initialise la recherche par date
+ * Initialisation de la recherche par date (optimisée PC & Mobile)
  */
 function initSearch() {
   const searchInput = document.getElementById('searchDate');
   if (searchInput) {
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') searchDate();
+    // Sur PC, un clic ouvre directement le sélecteur
+    searchInput.addEventListener('click', () => {
+      if (typeof searchInput.showPicker === 'function') {
+        try { searchInput.showPicker(); } catch (e) {}
+      }
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        searchDate();
+      }
     });
   }
 }
 
 /**
- * Rechercher une date dans le calendrier et défiler jusqu'à la semaine
+ * Parser une date locale YYYY-MM-DD sans décalage de fuseau horaire
+ */
+function parseLocalDate(str) {
+  if (!str) return null;
+  const parts = str.split('-');
+  if (parts.length < 3) return null;
+  return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+}
+
+/**
+ * Recherche d'une date
  */
 function searchDate() {
   const inputEl = document.getElementById('searchDate');
   if (!inputEl || !inputEl.value) return;
 
-  const input = inputEl.value;
-  inputEl.value = '';
+  const targetDate = parseLocalDate(inputEl.value);
   inputEl.blur();
 
-  const targetDate = new Date(input);
-  if (isNaN(targetDate.getTime())) return;
+  if (!targetDate || isNaN(targetDate.getTime())) return;
 
   const found = planningData.find((w) => {
-    const s = new Date(w.startDate);
-    const e = new Date(w.endDate);
+    const s = parseLocalDate(w.startDate);
+    const e = parseLocalDate(w.endDate);
+    if (!s || !e) return false;
     e.setHours(23, 59, 59, 999);
     return targetDate >= s && targetDate <= e;
   });
@@ -217,7 +226,7 @@ function searchDate() {
 }
 
 /**
- * Défilement fluide vers un élément donné avec animation de focus
+ * Défilement fluide vers une semaine
  */
 function scrollToTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -242,13 +251,16 @@ function scrollToTarget(elementId) {
 }
 
 /**
- * Défilement vers la semaine en cours
+ * Défilement vers la semaine actuelle
  */
 function scrollToCurrentWeek() {
   const now = new Date();
+  now.setHours(12, 0, 0, 0);
+
   const currentWeek = planningData.find((w) => {
-    const s = new Date(w.startDate);
-    const e = new Date(w.endDate);
+    const s = parseLocalDate(w.startDate);
+    const e = parseLocalDate(w.endDate);
+    if (!s || !e) return false;
     e.setHours(23, 59, 59, 999);
     return now >= s && now <= e;
   });
@@ -260,9 +272,6 @@ function scrollToCurrentWeek() {
   }
 }
 
-/**
- * Utilitaire pour échapper le HTML
- */
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -272,4 +281,3 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-

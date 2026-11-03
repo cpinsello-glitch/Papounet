@@ -3,11 +3,10 @@
  * Exécuté nativement sur le réseau Edge Cloudflare Workers (sans Google Apps Script)
  */
 
-// Identifiants des calendriers Google (utilisés pour récupérer le flux iCal standard)
 const DEFAULT_CALENDAR_ID = 'g4iphl07ea67cg982dvaf8s068@group.calendar.google.com';
 const DEFAULT_CALENDAR_RDV_ID = '4315aff00d85a2e1137c18d91a12d4ac4f89c3a3393f9bd540d35d2aa36d0711@group.calendar.google.com';
 
-const ANCHOR_DATE = new Date(2026, 8, 21); // 21 septembre 2026 (mois 8 = septembre)
+const ANCHOR_DATE = new Date(2026, 8, 21); // 21 septembre 2026
 const CYCLE_WEEKS = 15;
 const MONTHS_HORIZON = 8;
 const ALERTES_SEMAINES = [40];
@@ -23,45 +22,56 @@ const VACANCES = [
   { title: "Noël",      start: "2026-12-21", end: "2026-12-27" }
 ];
 
+// Événements fixes ou de référence (comme Opération Nolan)
+const FIXED_RDV = [
+  { date: "2026-11-17", title: "Opération Nolan", time: "", type: "rdv", description: "" }
+];
+
 export async function onRequestGet(context) {
   try {
     const env = context.env || {};
+    const urlObj = new URL(context.request.url);
     
-    // Possibilité de surcharger les URLs iCal via des variables d'environnement Cloudflare
-    const icalUrlGarde = env.CALENDAR_ICAL_URL || 
-      `https://calendar.google.com/calendar/ical/${encodeURIComponent(DEFAULT_CALENDAR_ID)}/public/basic.ics`;
-    
-    const icalUrlRdv = env.CALENDAR_RDV_ICAL_URL || 
-      `https://calendar.google.com/calendar/ical/${encodeURIComponent(DEFAULT_CALENDAR_RDV_ID)}/public/basic.ics`;
+    // Support de l'URL iCal secrète passée en paramètre ou variable d'environnement
+    const icalGarde = env.CALENDAR_SECRET_ICAL_URL || 
+                      urlObj.searchParams.get('ical_garde') || 
+                      env.CALENDAR_ICAL_URL;
 
-    // Récupération des flux iCal en parallèle (avec timeout de sécurité)
-    const [eventsGarde, eventsRdv] = await Promise.all([
-      fetchIcalEvents(icalUrlGarde),
-      fetchIcalEvents(icalUrlRdv)
-    ]);
+    const icalRdv = env.CALENDAR_RDV_SECRET_ICAL_URL || 
+                    urlObj.searchParams.get('ical_rdv') || 
+                    env.CALENDAR_RDV_ICAL_URL;
+
+    let eventsGarde = [];
+    let eventsRdv = [];
+
+    // Récupération si des URLs iCal valides sont fournies
+    if (icalGarde || icalRdv) {
+      const promises = [];
+      if (icalGarde) promises.push(fetchIcalEvents(icalGarde).then(ev => { eventsGarde = ev; }));
+      if (icalRdv) promises.push(fetchIcalEvents(icalRdv).then(ev => { eventsRdv = ev; }));
+      await Promise.all(promises);
+    }
 
     // Calcul du planning complet
     const planning = computePlanning({
       calendarEvents: eventsGarde,
-      rdvEvents: eventsRdv
+      rdvEvents: [...eventsRdv, ...FIXED_RDV]
     });
 
     return new Response(JSON.stringify(planning), {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=180, stale-while-revalidate=600',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
         'Access-Control-Allow-Origin': '*'
       }
     });
   } catch (error) {
-    // Secours : calcul du planning sans événements externes
-    const fallback = computePlanning({ calendarEvents: [], rdvEvents: [] });
+    const fallback = computePlanning({ calendarEvents: [], rdvEvents: FIXED_RDV });
     return new Response(JSON.stringify(fallback), {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
-        'X-Fallback': 'true',
         'Access-Control-Allow-Origin': '*'
       }
     });
@@ -69,12 +79,12 @@ export async function onRequestGet(context) {
 }
 
 /**
- * Télécharge et parse un flux iCalendar standard (.ics)
+ * Télécharge et décode un flux iCalendar standard (.ics)
  */
 async function fetchIcalEvents(url) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    const timeout = setTimeout(() => controller.abort(), 4000);
 
     const res = await fetch(url, {
       signal: controller.signal,
@@ -91,12 +101,11 @@ async function fetchIcalEvents(url) {
 }
 
 /**
- * Parser iCal léger et robuste compatible Cloudflare Worker
+ * Parser RFC 5545 iCalendar
  */
 function parseIcal(icsContent) {
   if (!icsContent || typeof icsContent !== 'string') return [];
 
-  // Dépliage des lignes RFC 5545 (continuation commençant par un espace ou une tabulation)
   const unfolded = icsContent.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
   const lines = unfolded.split(/\r?\n/);
 
@@ -132,10 +141,10 @@ function parseIcal(icsContent) {
     } else if (propName === 'DESCRIPTION') {
       current.description = unescapeIcalText(value);
     } else if (propName === 'DTSTART') {
-      const parsedDate = parseIcalDate(value, propRaw);
+      const parsedDate = parseIcalDate(value);
       if (parsedDate) current.start = parsedDate;
     } else if (propName === 'DTEND') {
-      const parsedDate = parseIcalDate(value, propRaw);
+      const parsedDate = parseIcalDate(value);
       if (parsedDate) current.end = parsedDate;
     }
   }
@@ -143,8 +152,7 @@ function parseIcal(icsContent) {
   return events;
 }
 
-function parseIcalDate(val, propRaw) {
-  // Format DATE : 20261106
+function parseIcalDate(val) {
   if (/^\d{8}$/.test(val)) {
     const y = parseInt(val.substring(0, 4), 10);
     const m = parseInt(val.substring(4, 6), 10) - 1;
@@ -152,7 +160,6 @@ function parseIcalDate(val, propRaw) {
     return new Date(y, m, d, 0, 0, 0);
   }
 
-  // Format UTC : 20261106T150000Z
   const matchUtc = val.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
   if (matchUtc) {
     return new Date(Date.UTC(
@@ -165,7 +172,6 @@ function parseIcalDate(val, propRaw) {
     ));
   }
 
-  // Format local : 20261106T150000
   const matchLocal = val.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
   if (matchLocal) {
     return new Date(
@@ -191,9 +197,6 @@ function unescapeIcalText(text) {
     .replace(/\\\\/g, '\\');
 }
 
-/**
- * Calcul du délai de confirmation (S-14 jours / 3-4 semaines d'avance)
- */
 function getConfirmationDeadline(now) {
   const current = new Date(now);
   const day = current.getDay(); 
@@ -228,9 +231,6 @@ function getHolidays() {
   });
 }
 
-/**
- * Algorithme principal de calcul du planning
- */
 function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
   const cycle = CYCLE_REPOS;
   const holidays = getHolidays(); 
@@ -269,8 +269,8 @@ function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
     const weekData = {
       weekId: `W_${weekStart.getFullYear()}_${isoWeek}`,
       title: weekTitle,
-      startDate: weekStart.toISOString().split('T')[0],
-      endDate: weekEnd.toISOString().split('T')[0],
+      startDate: `${weekStart.getFullYear()}-${pad(weekStart.getMonth() + 1)}-${pad(weekStart.getDate())}`,
+      endDate: `${weekEnd.getFullYear()}-${pad(weekEnd.getMonth() + 1)}-${pad(weekEnd.getDate())}`,
       isConfirmed: isConfirmedWeek,
       hasAlert: (ALERTES_SEMAINES.includes(isoWeek) && !isConfirmedWeek), 
       items: []
@@ -282,8 +282,13 @@ function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
     });
     
     const rdvThisWeek = rdvEvents.filter(ev => {
-      const evDate = new Date(ev.start);
-      return evDate >= weekStart && evDate < new Date(weekEnd.getTime() + 86400000);
+      let evDate;
+      if (ev.start) evDate = new Date(ev.start);
+      else if (ev.date) {
+        const [y, m, d] = ev.date.split('-').map(Number);
+        evDate = new Date(y, m - 1, d);
+      }
+      return evDate && evDate >= weekStart && evDate < new Date(weekEnd.getTime() + 86400000);
     });
 
     for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
@@ -299,30 +304,43 @@ function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
       });
       
       const dayRdv = rdvThisWeek.filter(ev => {
-        const s = new Date(ev.start);
-        return s.getDate() === currentD.getDate() && s.getMonth() === currentD.getMonth() && s.getFullYear() === currentD.getFullYear();
+        let s;
+        if (ev.start) s = new Date(ev.start);
+        else if (ev.date) {
+          const [y, m, d] = ev.date.split('-').map(Number);
+          s = new Date(y, m - 1, d);
+        }
+        return s && s.getDate() === currentD.getDate() && s.getMonth() === currentD.getMonth() && s.getFullYear() === currentD.getFullYear();
       });
 
+      // 1. RDV (Opération, consultations, etc.)
       if (dayRdv.length > 0) {
         dayRdv.forEach(ev => {
-          const s = new Date(ev.start);
-          const e = ev.end ? new Date(ev.end) : s;
-          const isMidnightToMidnight = (s.getHours() === 0 && s.getMinutes() === 0 && e.getHours() === 0 && e.getMinutes() === 0) || (s.toDateString() !== e.toDateString() && s.getHours() === 0 && e.getHours() === 0);
-          let timeStr = "";
-          if (!isMidnightToMidnight) timeStr = `à ${pad(s.getHours())}h${pad(s.getMinutes())}`;
+          let timeStr = ev.time || "";
+          let hasTime = !!ev.time;
+          if (ev.start) {
+            const s = new Date(ev.start);
+            const e = ev.end ? new Date(ev.end) : s;
+            const isMidnightToMidnight = (s.getHours() === 0 && s.getMinutes() === 0 && e.getHours() === 0 && e.getMinutes() === 0) || (s.toDateString() !== e.toDateString() && s.getHours() === 0 && e.getHours() === 0);
+            if (!isMidnightToMidnight) {
+              timeStr = `à ${pad(s.getHours())}h${pad(s.getMinutes())}`;
+              hasTime = true;
+            }
+          }
 
           weekData.items.push({ 
             dayShort: shortDays[dayIdx], 
             dayNum: pad(currentD.getDate()), 
             title: ev.title || "Rendez-vous", 
             time: timeStr, 
-            hasTime: !isMidnightToMidnight, 
+            hasTime: hasTime, 
             type: 'rdv',
             description: ev.description || "" 
           });
         });
       }
 
+      // 2. Événements confirmés de l'agenda
       if (isConfirmedWeek && dayEvents.length > 0) {
         dayEvents.forEach(ev => {
           const s = new Date(ev.start);
@@ -342,6 +360,7 @@ function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
           });
         });
       } 
+      // 3. Vacances
       else if (holidayMatch) {
         weekData.items.push({ 
           dayShort: shortDays[dayIdx], 
@@ -353,16 +372,29 @@ function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
           description: "" 
         });
       } 
-      else if (!isConfirmedWeek && restDayIndexes.includes(dayIdx)) {
-        weekData.items.push({ 
-          dayShort: shortDays[dayIdx], 
-          dayNum: pad(currentD.getDate()), 
-          title: "Repos théorique", 
-          time: "À confirmer à S -14 jours", 
-          hasTime: true, 
-          type: 'theory', 
-          description: "" 
-        });
+      // 4. Repos théorique (ou garde par défaut si aucun événement externe)
+      else if (restDayIndexes.includes(dayIdx)) {
+        if (isConfirmedWeek && calendarEvents.length === 0) {
+          // Si nous sommes dans une semaine confirmée mais qu'aucun flux iCal externe n'est connecté,
+          // afficher les heures de garde habituelles pour ne pas laisser la semaine vide
+          if (dayIdx === 4) { // Vendredi
+            weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: pad(currentD.getDate()), title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: 'confirmed', description: "" });
+          } else if (dayIdx === 6) { // Dimanche
+            weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: pad(currentD.getDate()), title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: 'confirmed', description: "" });
+          } else {
+            weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: pad(currentD.getDate()), title: "Repos confirmé", time: "", hasTime: false, type: 'confirmed', description: "" });
+          }
+        } else if (!isConfirmedWeek) {
+          weekData.items.push({ 
+            dayShort: shortDays[dayIdx], 
+            dayNum: pad(currentD.getDate()), 
+            title: "Repos théorique", 
+            time: "À confirmer à S -14 jours", 
+            hasTime: true, 
+            type: 'theory', 
+            description: "" 
+          });
+        }
       }
     }
     weeks.push(weekData);
@@ -379,4 +411,3 @@ function getWeekNumber(d) {
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
-

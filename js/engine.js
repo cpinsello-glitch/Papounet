@@ -1,7 +1,7 @@
 /**
  * Moteur de calcul du planning côté client
  * Permet d'exécuter l'ensemble de la logique calendrier directement dans le navigateur
- * en cas d'absence de connexion ou en complément de Cloudflare Pages Function.
+ * en cas d'absence de connexion ou pour un rendu instantané.
  */
 const PlanningEngine = {
   ANCHOR_DATE: new Date(2026, 8, 21),
@@ -18,6 +18,10 @@ const PlanningEngine = {
   VACANCES: [
     { title: "Toussaint", start: "2026-10-19", end: "2026-10-25" },
     { title: "Noël",      start: "2026-12-21", end: "2026-12-27" }
+  ],
+
+  FIXED_RDV: [
+    { date: "2026-11-17", title: "Opération Nolan", time: "", type: "rdv", description: "" }
   ],
 
   getConfirmationDeadline(now) {
@@ -69,6 +73,8 @@ const PlanningEngine = {
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + this.MONTHS_HORIZON);
 
+    const allRdv = [...this.FIXED_RDV, ...customEvents.filter(e => e.type === 'rdv')];
+
     const weeks = [];
     let iterDate = new Date(startDate);
     const shortDays = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
@@ -92,8 +98,8 @@ const PlanningEngine = {
       const weekData = {
         weekId: `W_${weekStart.getFullYear()}_${isoWeek}`,
         title: weekTitle,
-        startDate: weekStart.toISOString().split('T')[0],
-        endDate: weekEnd.toISOString().split('T')[0],
+        startDate: `${weekStart.getFullYear()}-${this.pad(weekStart.getMonth() + 1)}-${this.pad(weekStart.getDate())}`,
+        endDate: `${weekEnd.getFullYear()}-${this.pad(weekEnd.getMonth() + 1)}-${this.pad(weekEnd.getDate())}`,
         isConfirmed: isConfirmedWeek,
         hasAlert: (this.ALERTES_SEMAINES.includes(isoWeek) && !isConfirmedWeek), 
         items: []
@@ -106,26 +112,28 @@ const PlanningEngine = {
 
         const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
 
-        // Recherche d'événements personnalisés sur ce jour
-        const matchedCustom = customEvents.filter(ev => {
+        // Recherche d'un RDV pour ce jour
+        const matchedRdv = allRdv.filter(ev => {
           if (!ev.date) return false;
-          const ed = new Date(ev.date);
-          return ed.getDate() === currentD.getDate() && ed.getMonth() === currentD.getMonth() && ed.getFullYear() === currentD.getFullYear();
+          const [y, m, d] = ev.date.split('-').map(Number);
+          return d === currentD.getDate() && (m - 1) === currentD.getMonth() && y === currentD.getFullYear();
         });
 
-        if (matchedCustom.length > 0) {
-          matchedCustom.forEach(ev => {
+        if (matchedRdv.length > 0) {
+          matchedRdv.forEach(ev => {
             weekData.items.push({
               dayShort: shortDays[dayIdx],
               dayNum: this.pad(currentD.getDate()),
               title: ev.title,
               time: ev.time || "",
               hasTime: !!ev.time,
-              type: ev.type || 'confirmed',
+              type: 'rdv',
               description: ev.description || ""
             });
           });
-        } else if (holidayMatch) {
+        }
+
+        if (holidayMatch) {
           weekData.items.push({ 
             dayShort: shortDays[dayIdx], 
             dayNum: this.pad(currentD.getDate()), 
@@ -135,16 +143,27 @@ const PlanningEngine = {
             type: 'holiday', 
             description: "" 
           });
-        } else if (!isConfirmedWeek && restDayIndexes.includes(dayIdx)) {
-          weekData.items.push({ 
-            dayShort: shortDays[dayIdx], 
-            dayNum: this.pad(currentD.getDate()), 
-            title: "Repos théorique", 
-            time: "À confirmer à S -14 jours", 
-            hasTime: true, 
-            type: 'theory', 
-            description: "" 
-          });
+        } else if (restDayIndexes.includes(dayIdx)) {
+          if (isConfirmedWeek) {
+            // Heures de garde par défaut pour les semaines confirmées
+            if (dayIdx === 4) { // Vendredi
+              weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: this.pad(currentD.getDate()), title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: 'confirmed', description: "" });
+            } else if (dayIdx === 6) { // Dimanche
+              weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: this.pad(currentD.getDate()), title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: 'confirmed', description: "" });
+            } else {
+              weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: this.pad(currentD.getDate()), title: "Repos confirmé", time: "", hasTime: false, type: 'confirmed', description: "" });
+            }
+          } else {
+            weekData.items.push({ 
+              dayShort: shortDays[dayIdx], 
+              dayNum: this.pad(currentD.getDate()), 
+              title: "Repos théorique", 
+              time: "À confirmer à S -14 jours", 
+              hasTime: true, 
+              type: 'theory', 
+              description: "" 
+            });
+          }
         }
       }
 
@@ -164,4 +183,3 @@ const PlanningEngine = {
     return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
   }
 };
-
