@@ -4,20 +4,6 @@
 
 let planningData = [];
 
-// Panneau de danger routier SVG (silhouette écoliers / enfants)
-const ROAD_SIGN_SVG = `
-<svg class="road-sign-icon" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Attention">
-  <rect x="50" y="5" width="62" height="62" rx="8" transform="rotate(45 50 5)" fill="#FFD54F" stroke="#212121" stroke-width="5" />
-  <g fill="#212121">
-    <circle cx="58" cy="40" r="5" />
-    <path d="M54 47 L62 47 L64 62 L60 62 L59 55 L57 65 L53 65 L55 52 L52 50 Z" />
-    <circle cx="42" cy="46" r="4" />
-    <path d="M38 52 L45 52 L46 64 L43 64 L42 58 L41 65 L37 65 L39 56 L36 54 Z" />
-    <rect x="30" y="69" width="40" height="3" rx="1.5" />
-  </g>
-</svg>
-`;
-
 /**
  * Initialisation
  */
@@ -29,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Met à jour le bouton Aujourd'hui (ex: "3 nov")
+ * Met à jour le bouton Aujourd'hui (situé à droite de Go dans la barre du bas)
  */
 function updateTodayButton() {
   const today = new Date();
@@ -37,7 +23,7 @@ function updateTodayButton() {
   const formatted = today.toLocaleDateString('fr-FR', options).replace('.', '');
   const btn = document.getElementById('todayBtn');
   if (btn) {
-    btn.innerHTML = `<span class="sync-dot" id="syncDot"></span><span>${formatted}</span>`;
+    btn.innerHTML = `<span class="sync-dot" id="syncDot"></span><span id="todayText">${formatted}</span>`;
   }
 }
 
@@ -46,12 +32,12 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=2').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=3').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-            console.log('Nouvelle version prête, rafraîchissement silencieux.');
+            console.log('Nouvelle version active.');
           }
         });
       });
@@ -76,7 +62,6 @@ function loadPlanning() {
     onError: (err, hasCache) => {
       console.warn("Erreur API :", err);
       if (!hasCache) {
-        // En cas d'erreur totale, calculer le planning localement
         const localData = PlanningEngine.compute();
         renderPlanning(localData);
       }
@@ -131,9 +116,10 @@ function renderPlanning(data) {
           ? `<div class="event-time">${escapeHtml(item.time)}</div>` 
           : '';
 
+        // Icône ampoule pour les RDV des enfants
         let iconHtml = '';
         if (item.type === 'rdv') {
-          iconHtml = `<div class="event-emoji">${ROAD_SIGN_SVG}</div>`;
+          iconHtml = `<div class="event-emoji">💡</div>`;
         }
 
         const descHtml = item.description 
@@ -168,12 +154,11 @@ function renderPlanning(data) {
 }
 
 /**
- * Initialisation de la recherche par date (optimisée PC & Mobile)
+ * Initialisation de la recherche par date
  */
 function initSearch() {
   const searchInput = document.getElementById('searchDate');
   if (searchInput) {
-    // Sur PC, un clic ouvre directement le sélecteur
     searchInput.addEventListener('click', () => {
       if (typeof searchInput.showPicker === 'function') {
         try { searchInput.showPicker(); } catch (e) {}
@@ -189,7 +174,7 @@ function initSearch() {
 }
 
 /**
- * Parser une date locale YYYY-MM-DD sans décalage de fuseau horaire
+ * Parser une date locale YYYY-MM-DD sans décalage UTC
  */
 function parseLocalDate(str) {
   if (!str) return null;
@@ -199,7 +184,7 @@ function parseLocalDate(str) {
 }
 
 /**
- * Recherche d'une date
+ * Recherche d'une date et défilement
  */
 function searchDate() {
   const inputEl = document.getElementById('searchDate');
@@ -226,7 +211,7 @@ function searchDate() {
 }
 
 /**
- * Défilement fluide vers une semaine
+ * Défilement fluide vers une semaine (sans décalage de header fixe)
  */
 function scrollToTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -237,8 +222,7 @@ function scrollToTarget(elementId) {
 
   const headerEl = el.previousElementSibling;
   const targetEl = (headerEl && headerEl.classList.contains('week-header')) ? headerEl : el;
-  const headerHeight = document.querySelector('header').offsetHeight;
-  const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - headerHeight - 16;
+  const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - 16;
 
   window.scrollTo({
     top: Math.max(0, offsetPosition),
@@ -251,7 +235,7 @@ function scrollToTarget(elementId) {
 }
 
 /**
- * Défilement vers la semaine actuelle
+ * Défilement vers la date du jour
  */
 function scrollToCurrentWeek() {
   const now = new Date();

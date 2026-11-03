@@ -372,18 +372,32 @@ function computePlanning({ calendarEvents = [], rdvEvents = [] }) {
           description: "" 
         });
       } 
-      // 4. Repos théorique (ou garde par défaut si aucun événement externe)
+      // 4. Repos théorique (uniquement pour les semaines non confirmées)
       else if (restDayIndexes.includes(dayIdx)) {
         if (isConfirmedWeek && calendarEvents.length === 0) {
-          // Si nous sommes dans une semaine confirmée mais qu'aucun flux iCal externe n'est connecté,
-          // afficher les heures de garde habituelles pour ne pas laisser la semaine vide
+          // Semaine confirmée par défaut (sans repos confirmé textuel) :
           if (dayIdx === 4) { // Vendredi
-            weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: pad(currentD.getDate()), title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: 'confirmed', description: "" });
+            weekData.items.push({ 
+              dayShort: shortDays[dayIdx], 
+              dayNum: pad(currentD.getDate()), 
+              title: "Je viens chercher les enfants", 
+              time: "à 17h00", 
+              hasTime: true, 
+              type: 'confirmed', 
+              description: "" 
+            });
           } else if (dayIdx === 6) { // Dimanche
-            weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: pad(currentD.getDate()), title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: 'confirmed', description: "" });
-          } else {
-            weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: pad(currentD.getDate()), title: "Repos confirmé", time: "", hasTime: false, type: 'confirmed', description: "" });
+            weekData.items.push({ 
+              dayShort: shortDays[dayIdx], 
+              dayNum: pad(currentD.getDate()), 
+              title: "Je ramène les enfants", 
+              time: "à 11h00", 
+              hasTime: true, 
+              type: 'confirmed', 
+              description: "" 
+            });
           }
+          // Aucun "Repos confirmé" n'est ajouté
         } else if (!isConfirmedWeek) {
           weekData.items.push({ 
             dayShort: shortDays[dayIdx], 

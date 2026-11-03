@@ -14,10 +14,10 @@
   <meta name="theme-color" content="#ffffff">
 
   <!-- Icônes officielles (Photo de Papounet) -->
-  <link rel="icon" type="image/png" sizes="256x256" href="icon.png?v=2">
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
-  <link rel="manifest" href="manifest.webmanifest?v=2">
+  <link rel="icon" type="image/png" sizes="256x256" href="icon.png?v=3">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=3">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=3">
+  <link rel="manifest" href="manifest.webmanifest?v=3">
 
   <!-- Polices Google Fonts (Roboto & Roboto Condensed) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,22 +25,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400&family=Roboto:wght@700&display=swap" rel="stylesheet">
 
   <!-- Feuilles de style -->
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
-
-  <!-- En-tête fixe -->
-  <header>
-    <div class="header-inner">
-      <div class="header-title">
-        <h1 class="title-line1">LES PETITS LOULOUS</h1>
-        <span class="title-line2">chez Papounet 🥰</span>
-      </div>
-      <button class="today-btn" id="todayBtn" onclick="scrollToCurrentWeek()" title="Revenir à la date du jour">
-        Auj.
-      </button>
-    </div>
-  </header>
 
   <!-- Conteneur principal de la timeline -->
   <main class="container" id="timeline">
@@ -51,17 +38,24 @@
   </main>
 
   <!-- Barre de recherche fixe en bas -->
-  <nav class="bottom-bar" aria-label="Recherche par date">
+  <nav class="bottom-bar" aria-label="Recherche et navigation">
     <div class="bottom-bar-inner">
       <input type="date" id="searchDate" aria-label="Choisir une date pour aller à la semaine" placeholder="Choisir une date">
       <button id="searchBtn" onclick="searchDate()" aria-label="Aller à la date sélectionnée">Go</button>
+      <button class="today-btn" id="todayBtn" onclick="scrollToCurrentWeek()" title="Revenir à la date du jour" aria-label="Revenir à aujourd'hui">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="todayText">Auj.</span>
+      </button>
+    </div>
+    <div class="footer-credit">
+      Fait avec ❤️ par Papounet pour mes petits loulous 🥰
     </div>
   </nav>
 
   <!-- Scripts modulaires avec cache-busting -->
-  <script src="js/config.js?v=2"></script>
-  <script src="js/engine.js?v=2"></script>
-  <script src="js/api.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/config.js?v=3"></script>
+  <script src="js/engine.js?v=3"></script>
+  <script src="js/api.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

@@ -145,13 +145,27 @@ const PlanningEngine = {
           });
         } else if (restDayIndexes.includes(dayIdx)) {
           if (isConfirmedWeek) {
-            // Heures de garde par défaut pour les semaines confirmées
+            // Heures de garde par défaut pour les semaines confirmées (sans texte "repos confirmé")
             if (dayIdx === 4) { // Vendredi
-              weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: this.pad(currentD.getDate()), title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: 'confirmed', description: "" });
+              weekData.items.push({ 
+                dayShort: shortDays[dayIdx], 
+                dayNum: this.pad(currentD.getDate()), 
+                title: "Je viens chercher les enfants", 
+                time: "à 17h00", 
+                hasTime: true, 
+                type: 'confirmed', 
+                description: "" 
+              });
             } else if (dayIdx === 6) { // Dimanche
-              weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: this.pad(currentD.getDate()), title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: 'confirmed', description: "" });
-            } else {
-              weekData.items.push({ dayShort: shortDays[dayIdx], dayNum: this.pad(currentD.getDate()), title: "Repos confirmé", time: "", hasTime: false, type: 'confirmed', description: "" });
+              weekData.items.push({ 
+                dayShort: shortDays[dayIdx], 
+                dayNum: this.pad(currentD.getDate()), 
+                title: "Je ramène les enfants", 
+                time: "à 11h00", 
+                hasTime: true, 
+                type: 'confirmed', 
+                description: "" 
+              });
             }
           } else {
             weekData.items.push({ 
