@@ -130,8 +130,8 @@ function getFallbackSchedule() {
       isConfirmed: false,
       hasAlert: false,
       items: [
-        { dayShort: "LUN", dayNum: "23", title: "Repos théorique", time: "À confirmer à S -14 jours", hasTime: true, type: "theory", description: "" },
-        { dayShort: "MER", dayNum: "25", title: "Repos théorique", time: "À confirmer à S -14 jours", hasTime: true, type: "theory", description: "" }
+        { dayShort: "MER", dayNum: "25", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
+        { dayShort: "MER", dayNum: "25", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {
@@ -142,8 +142,10 @@ function getFallbackSchedule() {
       isConfirmed: false,
       hasAlert: false,
       items: [
-        { dayShort: "MAR", dayNum: "01", title: "Repos théorique", time: "À confirmer à S -14 jours", hasTime: true, type: "theory", description: "" },
-        { dayShort: "DIM", dayNum: "06", title: "Repos théorique", time: "À confirmer à S -14 jours", hasTime: true, type: "theory", description: "" }
+        { dayShort: "MER", dayNum: "02", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
+        { dayShort: "MER", dayNum: "02", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
+        { dayShort: "DIM", dayNum: "06", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
+        { dayShort: "DIM", dayNum: "06", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {

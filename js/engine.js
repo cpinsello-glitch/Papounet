@@ -10,26 +10,59 @@ const PlanningEngine = {
   // Cycle de repos officiel sur 15 semaines
   // 0: LUN, 1: MAR, 2: MER, 3: JEU, 4: VEN, 5: SAM, 6: DIM
   CYCLE_REPOS: [
-    [4, 5], // S39 (Anchor) : VEN, SAM
-    [1, 6], // S40 : MAR, DIM
-    [5, 6], // S41 : SAM, DIM
-    [0, 5], // S42 : LUN, SAM
-    [3, 6], // S43 : JEU, DIM
-    [5, 6], // S44 : SAM, DIM
-    [4, 5], // S45 : VEN, SAM (Vendredi 6, Samedi 7)
-    [3, 6], // S46 : JEU, DIM (Jeudi 12, Dimanche 15)
-    [5, 6], // S47 : SAM, DIM (Samedi 21, Dimanche 22)
-    [0, 2], // S48 : LUN, MER (Lundi 23, Mercredi 25)
-    [1, 6], // S49 : MAR, DIM (Mardi 01, Dimanche 06)
-    [5, 6], // S50 : SAM, DIM (Samedi 12, Dimanche 13)
-    [4, 5], // S51 : VEN, SAM (Vendredi 18, Samedi 19)
-    [2, 6], // S52 : MER, DIM (Mercredi 23, Dimanche 27)
-    [5, 6]  // S53 : SAM, DIM (Samedi 02, Dimanche 03)
+    [4, 5],    // S39 (Anchor) : VEN, SAM
+    [1, 6],    // S40 : MAR, DIM
+    [5, 6],    // S41 : SAM, DIM
+    [0, 5],    // S42 : LUN, SAM
+    [3, 6],    // S43 : JEU, DIM
+    [5, 6],    // S44 : SAM, DIM
+    [4, 5],    // S45 : VEN 6 (RC), SAM 7 (RH)
+    [3, 6],    // S46 : JEU 12 (RH), DIM 15 (RC)
+    [2, 3, 6], // S47 : MER 18 (RC), JEU 19 (REC ?), DIM 22 (RH) (Samedi 21 travaillé)
+    [0, 2],    // S48 : LUN 23 (RH), MER 25 (RH)
+    [2, 6],    // S49 : MER 02 (RH), DIM 06 (RC) (Mardi 1er travaillé)
+    [5, 6],    // S50 : SAM, DIM
+    [4, 5],    // S51 : VEN, SAM
+    [2, 6],    // S52 : MER, DIM
+    [5, 6]     // S53 : SAM, DIM
   ],
 
   VACANCES: [
     { title: "Toussaint", start: "2026-10-19", end: "2026-10-25" },
     { title: "Noël",      start: "2026-12-21", end: "2026-12-27" }
+  ],
+
+  // Événements réels de repos personnels de Papounet (depuis son agenda Google)
+  BASE_REPOS_EVENTS: [
+    { date: "2026-10-28", title: "RC" },
+    { date: "2026-11-01", title: "RH" },
+    { date: "2026-11-06", title: "RC" },
+    { date: "2026-11-07", title: "RH" },
+    { date: "2026-11-12", title: "RH" },
+    { date: "2026-11-15", title: "RC" },
+    { date: "2026-11-18", title: "RC" },
+    { date: "2026-11-19", title: "REC ?" },
+    { date: "2026-11-22", title: "RH" },
+    { date: "2026-11-23", title: "RH" },
+    { date: "2026-11-25", title: "RH" },
+    { date: "2026-12-02", title: "RH" },
+    { date: "2026-12-06", title: "RC" }
+  ],
+
+  REPOS_EVENTS: [
+    { date: "2026-10-28", title: "RC" },
+    { date: "2026-11-01", title: "RH" },
+    { date: "2026-11-06", title: "RC" },
+    { date: "2026-11-07", title: "RH" },
+    { date: "2026-11-12", title: "RH" },
+    { date: "2026-11-15", title: "RC" },
+    { date: "2026-11-18", title: "RC" },
+    { date: "2026-11-19", title: "REC ?" },
+    { date: "2026-11-22", title: "RH" },
+    { date: "2026-11-23", title: "RH" },
+    { date: "2026-11-25", title: "RH" },
+    { date: "2026-12-02", title: "RH" },
+    { date: "2026-12-06", title: "RC" }
   ],
 
   // Événements confirmés de base connus
@@ -47,7 +80,17 @@ const PlanningEngine = {
     { date: "2026-11-18", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
     { date: "2026-11-18", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
     { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
-    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
+    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 48
+    { date: "2026-11-25", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-11-25", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 49
+    { date: "2026-12-02", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-12-02", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+    { date: "2026-12-06", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-12-06", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
   ],
 
   // Événements actifs (base + synchronisation agenda sans doublons)
@@ -65,7 +108,17 @@ const PlanningEngine = {
     { date: "2026-11-18", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
     { date: "2026-11-18", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
     { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
-    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
+    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 48
+    { date: "2026-11-25", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-11-25", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 49
+    { date: "2026-12-02", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-12-02", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+    { date: "2026-12-06", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-12-06", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
   ],
 
   /**
@@ -165,6 +218,16 @@ const PlanningEngine = {
     });
   },
 
+  hasExplicitReposForWeek(weekStart, weekEnd) {
+    const s = weekStart.getTime();
+    const e = weekEnd.getTime();
+    return this.REPOS_EVENTS.some(r => {
+      const parts = r.date.split('-').map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+      return d >= s && d <= e;
+    });
+  },
+
   /**
    * Calcul principal du planning
    * @param {Object} options
@@ -226,15 +289,20 @@ const PlanningEngine = {
         const dayShort = shortDays[dayIdx];
         const dayNum = this.pad(currentD.getDate());
 
-        const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
-        const isRestDay = restDayIndexes.includes(dayIdx);
+        const dateStr = `${currentD.getFullYear()}-${this.pad(currentD.getMonth() + 1)}-${this.pad(currentD.getDate())}`;
+        const reposMatch = this.REPOS_EVENTS.find(r => r.date === dateStr);
+        const hasExplicitReposWeek = this.hasExplicitReposForWeek(weekStart, weekEnd);
+        const isRestDay = reposMatch ? true : (!hasExplicitReposWeek && restDayIndexes.includes(dayIdx));
+        const restTitle = reposMatch ? reposMatch.title : "Repos";
 
-        // 1. EN MODE ADMIN : Jours de repos personnels affichés en ROUGE
+        const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
+
+        // 1. EN MODE ADMIN : Jours de repos personnels affichés en ROUGE avec le titre exact (RC, RH, REC ?)
         if (showReposPerso && isRestDay) {
           weekData.items.push({
             dayShort: dayShort,
             dayNum: dayNum,
-            title: "Repos",
+            title: restTitle,
             time: "",
             hasTime: false,
             type: "repos-perso",

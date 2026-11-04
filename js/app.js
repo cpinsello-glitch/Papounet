@@ -93,7 +93,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=11').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=12').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -112,27 +112,48 @@ function initServiceWorker() {
 function mergeExternalEvents(weeks) {
   if (!weeks || !Array.isArray(weeks)) return;
 
-  // Réinitialiser la liste à partir des événements de base pour purger tout décalage
+  // Réinitialiser les listes à partir des événements de base pour purger tout décalage
   PlanningEngine.CONFIRMED_EVENTS = PlanningEngine.BASE_CONFIRMED_EVENTS.map(ev => ({ ...ev }));
+  PlanningEngine.REPOS_EVENTS = PlanningEngine.BASE_REPOS_EVENTS.map(ev => ({ ...ev }));
 
   weeks.forEach(w => {
     (w.items || []).forEach(item => {
-      // Ignorer les repos théoriques et repos perso dans la fusion
-      if (item.type === 'theory' || item.type === 'repos-perso') return;
+      // Ignorer les repos théoriques dans la fusion
+      if (item.type === 'theory') return;
 
       // Calcul certifié de la date exacte YYYY-MM-DD
       const dateStr = PlanningEngine.getExactDateForItem(w, item);
       if (!dateStr) return;
 
-      // Détection des doublons : même date et même titre (insensible à la casse)
+      const rawTitle = (item.title || "").trim();
+      const upperTitle = rawTitle.toUpperCase();
+
+      // Gestion des événements de repos personnels (RC, RH, REC ?, etc.)
+      const isRepos = item.type === 'repos-perso' || 
+                      upperTitle === 'RC' || 
+                      upperTitle === 'RH' || 
+                      upperTitle.startsWith('REC');
+
+      if (isRepos) {
+        const existsRepos = PlanningEngine.REPOS_EVENTS.some(r => r.date === dateStr);
+        if (!existsRepos) {
+          PlanningEngine.REPOS_EVENTS.push({
+            date: dateStr,
+            title: rawTitle
+          });
+        }
+        return;
+      }
+
+      // Détection des doublons pour la garde / RV : même date et même titre (insensible à la casse)
       const exists = PlanningEngine.CONFIRMED_EVENTS.some(ev => 
-        ev.date === dateStr && ev.title.trim().toLowerCase() === item.title.trim().toLowerCase()
+        ev.date === dateStr && ev.title.trim().toLowerCase() === rawTitle.toLowerCase()
       );
 
       if (!exists) {
         PlanningEngine.CONFIRMED_EVENTS.push({
           date: dateStr,
-          title: item.title,
+          title: rawTitle,
           time: item.time || "",
           type: item.type || 'confirmed'
         });
