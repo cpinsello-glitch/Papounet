@@ -3,8 +3,8 @@
  */
 
 let planningData = [];
-let rawPlanningData = [];
 let isShieldActive = false;
+let savedBodyScrollY = 0;
 
 /**
  * Gestion automatique du mode sombre selon le lever/coucher du soleil
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Met à jour le bouton Aujourd'hui (date parfaitement centrée)
+ * Met à jour le bouton Aujourd'hui (date centrée)
  */
 function updateTodayButton() {
   const today = new Date();
@@ -106,12 +106,12 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=8').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=9').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-            console.log('Nouvelle version prête.');
+            console.log('Nouvelle version active.');
           }
         });
       });
@@ -120,28 +120,63 @@ function initServiceWorker() {
 }
 
 /**
+ * Fusionne les événements externes (Google Apps Script) dans le moteur
+ */
+function mergeExternalEvents(weeks) {
+  if (!weeks || !Array.isArray(weeks)) return;
+
+  weeks.forEach(w => {
+    (w.items || []).forEach(item => {
+      // Ignorer les repos théoriques dans la fusion
+      if (item.type === 'theory' || item.type === 'repos-perso') return;
+
+      // Déduire la date exacte YYYY-MM-DD
+      const weekStart = parseLocalDate(w.startDate);
+      if (!weekStart) return;
+
+      const dayOrder = { 'LUN': 0, 'MAR': 1, 'MER': 2, 'JEU': 3, 'VEN': 4, 'SAM': 5, 'DIM': 6 };
+      const dayOffset = dayOrder[item.dayShort] !== undefined ? dayOrder[item.dayShort] : 0;
+      const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + dayOffset);
+      const dateStr = `${d.getFullYear()}-${PlanningEngine.pad(d.getMonth() + 1)}-${PlanningEngine.pad(d.getDate())}`;
+
+      const exists = PlanningEngine.CONFIRMED_EVENTS.some(ev => 
+        ev.date === dateStr && ev.title === item.title && ev.time === item.time
+      );
+
+      if (!exists) {
+        PlanningEngine.CONFIRMED_EVENTS.push({
+          date: dateStr,
+          title: item.title,
+          time: item.time || "",
+          type: item.type || 'confirmed'
+        });
+      }
+    });
+  });
+}
+
+/**
  * Chargement et synchronisation du planning
  */
 function loadPlanning() {
-  const container = document.getElementById('timeline');
   const syncDot = document.getElementById('syncDot');
 
+  // 1. Rendu immédiat avec le moteur (Mode normal ou admin)
+  const currentData = PlanningEngine.compute({ showReposPerso: isShieldActive });
+  renderPlanning(currentData);
+
+  // 2. Synchronisation réseau en arrière-plan
   API.getPlanning({
     onCachedData: (data) => {
-      rawPlanningData = data;
-      renderPlanning(applyShieldMode(data, isShieldActive));
+      mergeExternalEvents(data);
+      renderPlanning(PlanningEngine.compute({ showReposPerso: isShieldActive }));
     },
     onFreshData: (data) => {
-      rawPlanningData = data;
-      renderPlanning(applyShieldMode(data, isShieldActive));
+      mergeExternalEvents(data);
+      renderPlanning(PlanningEngine.compute({ showReposPerso: isShieldActive }));
     },
-    onError: (err, hasCache) => {
-      console.warn("Erreur API :", err);
-      if (!hasCache) {
-        const localData = PlanningEngine.compute({ showReposPerso: isShieldActive });
-        rawPlanningData = localData;
-        renderPlanning(localData);
-      }
+    onError: (err) => {
+      console.info("Utilisation du moteur local Papounet.");
     },
     onSyncStatus: (isSyncing) => {
       if (syncDot) {
@@ -153,95 +188,23 @@ function loadPlanning() {
 }
 
 /**
- * Applique ou retire les jours de repos personnels (mode Bouclier)
- */
-function applyShieldMode(weeks, showRepos) {
-  if (!weeks || !Array.isArray(weeks)) return [];
-
-  // Si désactivé, filtrer simplement les éventuels items de repos perso
-  if (!showRepos) {
-    return weeks.map(w => ({
-      ...w,
-      items: (w.items || []).filter(item => item.type !== 'repos-perso')
-    }));
-  }
-
-  // Si activé, calculer les jours de repos du cycle de 15 semaines
-  const cycle = PlanningEngine.CYCLE_REPOS;
-  const anchorDate = PlanningEngine.ANCHOR_DATE;
-  const cycleWeeks = PlanningEngine.CYCLE_WEEKS;
-  const shortDays = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
-
-  return weeks.map(w => {
-    // Calcul de l'index du cycle pour cette semaine
-    const weekStart = parseLocalDate(w.startDate);
-    let restDayIndexes = [];
-    if (weekStart) {
-      const diffDays = Math.round((weekStart.getTime() - anchorDate.getTime()) / 86400000);
-      const diffWeeks = Math.floor(diffDays / 7);
-      const cycleIndex = ((diffWeeks % cycleWeeks) + cycleWeeks) % cycleWeeks;
-      restDayIndexes = cycle[cycleIndex] || [];
-    }
-
-    // Filtrer d'abord les anciens repos perso
-    const baseItems = (w.items || []).filter(item => item.type !== 'repos-perso');
-    const newItems = [...baseItems];
-
-    if (weekStart && restDayIndexes.length > 0) {
-      restDayIndexes.forEach(dayIdx => {
-        const d = new Date(weekStart);
-        d.setDate(d.getDate() + dayIdx);
-        const dayNum = PlanningEngine.pad(d.getDate());
-        const dayShort = shortDays[dayIdx];
-
-        // Ajouter l'item de repos personnel
-        newItems.push({
-          dayShort: dayShort,
-          dayNum: dayNum,
-          title: "Repos",
-          time: "",
-          hasTime: false,
-          type: "repos-perso",
-          description: ""
-        });
-      });
-    }
-
-    // Tri des items par jour dans la semaine (du lundi au dimanche)
-    const dayOrder = { 'LUN': 0, 'MAR': 1, 'MER': 2, 'JEU': 3, 'VEN': 4, 'SAM': 5, 'DIM': 6 };
-    newItems.sort((a, b) => {
-      const diffDay = (dayOrder[a.dayShort] || 0) - (dayOrder[b.dayShort] || 0);
-      if (diffDay !== 0) return diffDay;
-      // Si même jour, mettre le repos en premier ou ordonner
-      if (a.type === 'repos-perso') return -1;
-      if (b.type === 'repos-perso') return 1;
-      return 0;
-    });
-
-    return {
-      ...w,
-      items: newItems
-    };
-  });
-}
-
-/**
  * Gestion du clic sur le bouton Bouclier
  */
 function onShieldClick() {
   if (isShieldActive) {
-    // Si déjà actif, le fermer et revenir à l'affichage de base
+    // Fermeture du Mode Admin -> retour au Mode Normal
     isShieldActive = false;
-    document.getElementById('shieldBtn').classList.remove('active');
-    renderPlanning(applyShieldMode(rawPlanningData, false));
+    const btn = document.getElementById('shieldBtn');
+    if (btn) btn.classList.remove('active');
+    renderPlanning(PlanningEngine.compute({ showReposPerso: false }));
   } else {
-    // Ouvrir la modale de saisie du code PIN
+    // Ouverture de la modale Admin Access
     openPinModal();
   }
 }
 
 /**
- * Modale Code PIN
+ * Modale Code PIN (Admin Access)
  */
 function openPinModal() {
   const modal = document.getElementById('pinModal');
@@ -253,8 +216,19 @@ function openPinModal() {
     input.value = '';
     if (error) error.innerText = '';
     if (card) card.classList.remove('shake');
+    
+    // Geler le défilement de l'arrière-plan pour éviter qu'il ne bouge avec le clavier
+    savedBodyScrollY = window.pageYOffset || document.documentElement.scrollTop;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${savedBodyScrollY}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+
     modal.style.display = 'flex';
-    setTimeout(() => input.focus(), 150);
+    
+    // Ouvrir directement le clavier numérique
+    input.focus();
+    setTimeout(() => input.focus(), 60);
   }
 }
 
@@ -263,6 +237,13 @@ function closePinModal() {
   const input = document.getElementById('pinInput');
   if (modal) modal.style.display = 'none';
   if (input) input.blur();
+
+  // Dégeler l'arrière-plan à la position exacte
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  document.body.style.overflow = '';
+  window.scrollTo(0, savedBodyScrollY);
 }
 
 function onPinOverlayClick(event) {
@@ -275,7 +256,7 @@ function initPinInput() {
   const input = document.getElementById('pinInput');
   if (input) {
     input.addEventListener('input', () => {
-      // Validation automatique dès que 5 chiffres sont entrés
+      // Soumission automatique dès les 5 chiffres saisis
       if (input.value.length === 5) {
         submitPin();
       }
@@ -297,18 +278,21 @@ function submitPin() {
 
   const entered = input.value.trim();
 
-  // Vérification avec les 2 codes autorisés : 66526 ou 84247
+  // Codes autorisés : 66526 ou 84247
   if (CONFIG.AUTHORIZED_PINS.includes(entered)) {
     isShieldActive = true;
     closePinModal();
     const btn = document.getElementById('shieldBtn');
     if (btn) btn.classList.add('active');
-    renderPlanning(applyShieldMode(rawPlanningData, true));
+    
+    // Rendu en Mode Admin : jours de repos en rouge et garde sur tous les 8 mois
+    const adminData = PlanningEngine.compute({ showReposPerso: true });
+    renderPlanning(adminData);
   } else {
     if (error) error.innerText = "Code incorrect";
     if (card) {
       card.classList.remove('shake');
-      void card.offsetWidth; // Déclenchement du reflow
+      void card.offsetWidth;
       card.classList.add('shake');
     }
     input.value = '';
@@ -356,7 +340,7 @@ function renderPlanning(data) {
         const nextItem = week.items[index + 1];
         const prevItem = week.items[index - 1];
 
-        // Vérifier si 2 événements ont lieu le même jour (suppression du trait)
+        // Vérifier si 2 événements ont lieu le même jour (ex: DIM 15)
         const isSameDayAsNext = nextItem && nextItem.dayNum === item.dayNum && nextItem.dayShort === item.dayShort;
         const isSameDayAsPrev = prevItem && prevItem.dayNum === item.dayNum && prevItem.dayShort === item.dayShort;
 
@@ -481,7 +465,6 @@ function scrollToTarget(elementId) {
   const headerEl = el.previousElementSibling;
   const targetEl = (headerEl && headerEl.classList.contains('week-header')) ? headerEl : el;
   
-  // Dégagement net pour que le titre de la semaine soit parfaitement visible sous la barre d'état
   const topClearance = 92;
   const offsetPosition = targetEl.getBoundingClientRect().top + window.pageYOffset - topClearance;
 

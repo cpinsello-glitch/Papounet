@@ -1,16 +1,30 @@
 /**
- * Moteur de calcul et données de base du planning
+ * Moteur de calcul calendrier Papounet
  */
 const PlanningEngine = {
-  ANCHOR_DATE: new Date(2026, 8, 21),
+  ANCHOR_DATE: new Date(2026, 8, 21), // 21 septembre 2026 (Lundi de la Semaine 39)
   CYCLE_WEEKS: 15,
   MONTHS_HORIZON: 8,
   ALERTES_SEMAINES: [40],
 
+  // Cycle de repos officiel sur 15 semaines
+  // 0: LUN, 1: MAR, 2: MER, 3: JEU, 4: VEN, 5: SAM, 6: DIM
   CYCLE_REPOS: [
-    [4, 5], [1, 6], [5, 6], [0, 5], [3, 6], 
-    [5, 6], [4, 5], [3, 6], [5, 6], [0, 2], 
-    [1, 6], [5, 6], [4, 5], [2, 6], [5, 6]
+    [4, 5], // S39 (Anchor) : VEN, SAM
+    [1, 6], // S40 : MAR, DIM
+    [5, 6], // S41 : SAM, DIM
+    [0, 5], // S42 : LUN, SAM
+    [3, 6], // S43 : JEU, DIM
+    [5, 6], // S44 : SAM, DIM
+    [4, 5], // S45 : VEN, SAM (Vendredi 6, Samedi 7)
+    [3, 6], // S46 : JEU, DIM (Jeudi 12, Dimanche 15)
+    [5, 6], // S47 : SAM, DIM (Samedi 21, Dimanche 22)
+    [0, 2], // S48 : LUN, MER (Lundi 23, Mercredi 25)
+    [1, 6], // S49 : MAR, DIM (Mardi 01, Dimanche 06)
+    [5, 6], // S50 : SAM, DIM (Samedi 12, Dimanche 13)
+    [4, 5], // S51 : VEN, SAM (Vendredi 18, Samedi 19)
+    [2, 6], // S52 : MER, DIM (Mercredi 23, Dimanche 27)
+    [5, 6]  // S53 : SAM, DIM (Samedi 02, Dimanche 03)
   ],
 
   VACANCES: [
@@ -35,6 +49,18 @@ const PlanningEngine = {
     { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
     { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
   ],
+
+  /**
+   * Calcule le lundi de n'importe quelle semaine ISO
+   */
+  getMondayOfISOWeek(year, week) {
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const firstMonday = new Date(year, 0, 4 - dayOfWeek + 1);
+    const targetMonday = new Date(firstMonday.getFullYear(), firstMonday.getMonth(), firstMonday.getDate() + (week - 1) * 7);
+    targetMonday.setHours(0, 0, 0, 0);
+    return targetMonday;
+  },
 
   getConfirmationDeadline(now) {
     const current = new Date(now);
@@ -70,6 +96,11 @@ const PlanningEngine = {
     });
   },
 
+  /**
+   * Calcul principal du planning
+   * @param {Object} options
+   * @param {boolean} options.showReposPerso Mode Admin actif (affiche repos en rouge et garde sur 8 mois)
+   */
   compute(options = {}) {
     const showReposPerso = !!options.showReposPerso;
     const cycle = this.CYCLE_REPOS;
@@ -77,26 +108,30 @@ const PlanningEngine = {
     const now = new Date();
     const confirmDeadline = this.getConfirmationDeadline(now);
     
+    // Déterminer la semaine ISO de départ
     const currentDay = now.getDay();
     const diffToMonday = (currentDay === 0 ? -6 : 1 - currentDay);
-    const startDate = new Date(now);
-    startDate.setDate(now.getDate() + diffToMonday);
-    startDate.setHours(0, 0, 0, 0);
+    const startMonday = new Date(now);
+    startMonday.setDate(now.getDate() + diffToMonday);
+    startMonday.setHours(0, 0, 0, 0);
 
-    const endDate = new Date(startDate);
+    const endDate = new Date(startMonday);
     endDate.setMonth(endDate.getMonth() + this.MONTHS_HORIZON);
 
     const weeks = [];
-    let iterDate = new Date(startDate);
+    let iterDate = new Date(startMonday);
     const shortDays = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
     const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
     while (iterDate < endDate) {
-      const weekStart = new Date(iterDate);
-      const weekEnd = new Date(iterDate);
+      const isoWeek = this.getWeekNumber(iterDate);
+      const isoYear = iterDate.getFullYear();
+
+      // Toujours calculer le lundi exact de cette semaine
+      const weekStart = this.getMondayOfISOWeek(isoYear, isoWeek);
+      const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
 
-      const isoWeek = this.getWeekNumber(weekStart);
       const diffDays = Math.round((weekStart.getTime() - this.ANCHOR_DATE.getTime()) / 86400000);
       const diffWeeks = Math.floor(diffDays / 7);
       const cycleIndex = ((diffWeeks % this.CYCLE_WEEKS) + this.CYCLE_WEEKS) % this.CYCLE_WEEKS;
@@ -107,7 +142,7 @@ const PlanningEngine = {
       const weekTitle = `Semaine ${isoWeek} • ${weekStart.getDate()} ${monthNames[weekStart.getMonth()]} - ${weekEnd.getDate()} ${monthNames[weekEnd.getMonth()]}`;
 
       const weekData = {
-        weekId: `W_${weekStart.getFullYear()}_${isoWeek}`,
+        weekId: `W_${isoYear}_${isoWeek}`,
         title: weekTitle,
         startDate: `${weekStart.getFullYear()}-${this.pad(weekStart.getMonth() + 1)}-${this.pad(weekStart.getDate())}`,
         endDate: `${weekEnd.getFullYear()}-${this.pad(weekEnd.getMonth() + 1)}-${this.pad(weekEnd.getDate())}`,
@@ -117,19 +152,19 @@ const PlanningEngine = {
       };
 
       for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
-        const currentD = new Date(weekStart);
-        currentD.setDate(currentD.getDate() + dayIdx);
+        const currentD = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + dayIdx);
         const currentDTime = currentD.getTime();
+        const dayShort = shortDays[dayIdx];
+        const dayNum = this.pad(currentD.getDate());
 
         const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
+        const isRestDay = restDayIndexes.includes(dayIdx);
 
-        // Si le mode repos personnel est activé et que Papounet est de repos ce jour-là
-        const isPersonalRestDay = restDayIndexes.includes(dayIdx);
-
-        if (showReposPerso && isPersonalRestDay) {
+        // 1. EN MODE ADMIN : Jours de repos personnels affichés en ROUGE
+        if (showReposPerso && isRestDay) {
           weekData.items.push({
-            dayShort: shortDays[dayIdx],
-            dayNum: this.pad(currentD.getDate()),
+            dayShort: dayShort,
+            dayNum: dayNum,
             title: "Repos",
             time: "",
             hasTime: false,
@@ -138,7 +173,7 @@ const PlanningEngine = {
           });
         }
 
-        // Recherche des événements confirmés de garde / RV
+        // 2. Recherche d'événements enregistrés (Garde ou RV)
         const matched = this.CONFIRMED_EVENTS.filter(ev => {
           const [y, m, d] = ev.date.split('-').map(Number);
           return d === currentD.getDate() && (m - 1) === currentD.getMonth() && y === currentD.getFullYear();
@@ -146,30 +181,55 @@ const PlanningEngine = {
 
         if (matched.length > 0) {
           matched.forEach(ev => {
-            weekData.items.push({
-              dayShort: shortDays[dayIdx],
-              dayNum: this.pad(currentD.getDate()),
-              title: ev.title,
-              time: ev.time || "",
-              hasTime: !!ev.time,
-              type: ev.type,
-              description: ""
-            });
+            // En mode normal, la garde n'est visible que sur les 3 semaines confirmées
+            if (ev.type === 'rdv' || isConfirmedWeek || showReposPerso) {
+              weekData.items.push({
+                dayShort: dayShort,
+                dayNum: dayNum,
+                title: ev.title,
+                time: ev.time || "",
+                hasTime: !!ev.time,
+                type: ev.type,
+                description: ""
+              });
+            }
           });
-        } else if (holidayMatch) {
+        } 
+        // 3. En Mode Admin : afficher la garde sur les 6 à 8 mois au-delà des 3 semaines
+        else if (showReposPerso && !isConfirmedWeek) {
+          // Si Papounet est de repos le week-end (VEN/SAM ou SAM/DIM)
+          if (restDayIndexes.includes(4) && restDayIndexes.includes(5)) {
+            if (dayIdx === 4) {
+              weekData.items.push({ dayShort, dayNum, title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: "confirmed", description: "" });
+            } else if (dayIdx === 6) {
+              weekData.items.push({ dayShort, dayNum, title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" });
+            }
+          } 
+          // Si Papounet est de repos le dimanche (ex: semaine JEU/DIM)
+          else if (restDayIndexes.includes(6)) {
+            if (dayIdx === 6) {
+              weekData.items.push({ dayShort, dayNum, title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" });
+              weekData.items.push({ dayShort, dayNum, title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" });
+            }
+          }
+        }
+        // 4. Vacances scolaires
+        else if (holidayMatch) {
           weekData.items.push({ 
-            dayShort: shortDays[dayIdx], 
-            dayNum: this.pad(currentD.getDate()), 
+            dayShort: dayShort, 
+            dayNum: dayNum, 
             title: holidayMatch.title, 
             time: "", 
             hasTime: false, 
             type: 'holiday', 
             description: "" 
           });
-        } else if (!isConfirmedWeek && restDayIndexes.includes(dayIdx) && !showReposPerso) {
+        } 
+        // 5. En Mode Normal : "Repos théorique" uniquement au-delà des 3 semaines (sans repos perso)
+        else if (!isConfirmedWeek && isRestDay && !showReposPerso) {
           weekData.items.push({ 
-            dayShort: shortDays[dayIdx], 
-            dayNum: this.pad(currentD.getDate()), 
+            dayShort: dayShort, 
+            dayNum: dayNum, 
             title: "Repos théorique", 
             time: "À confirmer à S -14 jours", 
             hasTime: true, 
