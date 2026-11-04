@@ -8,6 +8,7 @@ let savedBodyScrollY = 0;
 
 /**
  * Gestion automatique du mode sombre selon le lever/coucher du soleil
+ * Fonctionne 100% hors-ligne avec les coordonnées moyennes françaises sans AUCUNE demande de géolocalisation
  */
 const SolarTheme = {
   DEFAULT_LAT: 46.6,
@@ -16,20 +17,6 @@ const SolarTheme = {
   init() {
     this.applyTheme();
     setInterval(() => this.applyTheme(), 60000);
-
-    if ('geolocation' in navigator) {
-      try {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            this.DEFAULT_LAT = pos.coords.latitude;
-            this.DEFAULT_LON = pos.coords.longitude;
-            this.applyTheme();
-          },
-          () => {},
-          { timeout: 4000, maximumAge: 86400000 }
-        );
-      } catch (e) {}
-    }
   },
 
   isNightTime() {
@@ -106,7 +93,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=9').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=11').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -120,27 +107,26 @@ function initServiceWorker() {
 }
 
 /**
- * Fusionne les événements externes (Google Apps Script) dans le moteur
+ * Fusionne les événements externes (Google Apps Script) dans le moteur sans doublons
  */
 function mergeExternalEvents(weeks) {
   if (!weeks || !Array.isArray(weeks)) return;
 
+  // Réinitialiser la liste à partir des événements de base pour purger tout décalage
+  PlanningEngine.CONFIRMED_EVENTS = PlanningEngine.BASE_CONFIRMED_EVENTS.map(ev => ({ ...ev }));
+
   weeks.forEach(w => {
     (w.items || []).forEach(item => {
-      // Ignorer les repos théoriques dans la fusion
+      // Ignorer les repos théoriques et repos perso dans la fusion
       if (item.type === 'theory' || item.type === 'repos-perso') return;
 
-      // Déduire la date exacte YYYY-MM-DD
-      const weekStart = parseLocalDate(w.startDate);
-      if (!weekStart) return;
+      // Calcul certifié de la date exacte YYYY-MM-DD
+      const dateStr = PlanningEngine.getExactDateForItem(w, item);
+      if (!dateStr) return;
 
-      const dayOrder = { 'LUN': 0, 'MAR': 1, 'MER': 2, 'JEU': 3, 'VEN': 4, 'SAM': 5, 'DIM': 6 };
-      const dayOffset = dayOrder[item.dayShort] !== undefined ? dayOrder[item.dayShort] : 0;
-      const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + dayOffset);
-      const dateStr = `${d.getFullYear()}-${PlanningEngine.pad(d.getMonth() + 1)}-${PlanningEngine.pad(d.getDate())}`;
-
+      // Détection des doublons : même date et même titre (insensible à la casse)
       const exists = PlanningEngine.CONFIRMED_EVENTS.some(ev => 
-        ev.date === dateStr && ev.title === item.title && ev.time === item.time
+        ev.date === dateStr && ev.title.trim().toLowerCase() === item.title.trim().toLowerCase()
       );
 
       if (!exists) {

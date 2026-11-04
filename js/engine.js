@@ -32,7 +32,25 @@ const PlanningEngine = {
     { title: "Noël",      start: "2026-12-21", end: "2026-12-27" }
   ],
 
-  // Événements confirmés connus pour les premières semaines
+  // Événements confirmés de base connus
+  BASE_CONFIRMED_EVENTS: [
+    // Semaine 45
+    { date: "2026-11-06", title: "Je viens chercher les enfants", time: "à 17h00", type: "confirmed" },
+    { date: "2026-11-08", title: "Je ramène les enfants", time: "à 11h00", type: "confirmed" },
+
+    // Semaine 46
+    { date: "2026-11-15", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-11-15", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 47
+    { date: "2026-11-17", title: "Opération Nolan", time: "", type: "rdv" },
+    { date: "2026-11-18", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-11-18", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+    { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
+  ],
+
+  // Événements actifs (base + synchronisation agenda sans doublons)
   CONFIRMED_EVENTS: [
     // Semaine 45
     { date: "2026-11-06", title: "Je viens chercher les enfants", time: "à 17h00", type: "confirmed" },
@@ -49,6 +67,57 @@ const PlanningEngine = {
     { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
     { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
   ],
+
+  /**
+   * Résout avec certitude la date YYYY-MM-DD d'un événement externe
+   * en utilisant le numéro de jour exact de la semaine ISO pour éviter tout décalage
+   */
+  getExactDateForItem(week, item) {
+    if (item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date)) {
+      return item.date;
+    }
+
+    let isoYear = 2026;
+    let isoWeek = null;
+
+    if (week.weekId) {
+      const m = week.weekId.match(/W_(\d+)_(\d+)/);
+      if (m) {
+        isoYear = parseInt(m[1], 10);
+        isoWeek = parseInt(m[2], 10);
+      }
+    }
+    if (!isoWeek && week.title) {
+      const m = week.title.match(/Semaine\s+(\d+)/i);
+      if (m) {
+        isoWeek = parseInt(m[1], 10);
+      }
+    }
+
+    if (isoWeek) {
+      const monday = this.getMondayOfISOWeek(isoYear, isoWeek);
+      const targetNum = item.dayNum ? parseInt(item.dayNum, 10) : null;
+
+      // 1. Recherche par le numéro de jour dans les 7 jours de la semaine ISO
+      if (targetNum !== null && !isNaN(targetNum)) {
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+          if (d.getDate() === targetNum) {
+            return `${d.getFullYear()}-${this.pad(d.getMonth() + 1)}-${this.pad(d.getDate())}`;
+          }
+        }
+      }
+
+      // 2. Secours par le jour abrégé
+      const dayOrder = { 'LUN': 0, 'MAR': 1, 'MER': 2, 'JEU': 3, 'VEN': 4, 'SAM': 5, 'DIM': 6 };
+      if (item.dayShort && dayOrder[item.dayShort] !== undefined) {
+        const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayOrder[item.dayShort]);
+        return `${d.getFullYear()}-${this.pad(d.getMonth() + 1)}-${this.pad(d.getDate())}`;
+      }
+    }
+
+    return null;
+  },
 
   /**
    * Calcule le lundi de n'importe quelle semaine ISO
@@ -182,6 +251,8 @@ const PlanningEngine = {
         if (matched.length > 0) {
           matched.forEach(ev => {
             // En mode normal, la garde n'est visible que sur les 3 semaines confirmées
+            // Les RV des enfants (💡) sont visibles sur tous les 8 mois pour tous
+            // En mode admin (showReposPerso), TOUS les événements de garde du calendrier sont visibles sur 6 à 8 mois
             if (ev.type === 'rdv' || isConfirmedWeek || showReposPerso) {
               weekData.items.push({
                 dayShort: dayShort,
@@ -195,25 +266,7 @@ const PlanningEngine = {
             }
           });
         } 
-        // 3. En Mode Admin : afficher la garde sur les 6 à 8 mois au-delà des 3 semaines
-        else if (showReposPerso && !isConfirmedWeek) {
-          // Si Papounet est de repos le week-end (VEN/SAM ou SAM/DIM)
-          if (restDayIndexes.includes(4) && restDayIndexes.includes(5)) {
-            if (dayIdx === 4) {
-              weekData.items.push({ dayShort, dayNum, title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: "confirmed", description: "" });
-            } else if (dayIdx === 6) {
-              weekData.items.push({ dayShort, dayNum, title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" });
-            }
-          } 
-          // Si Papounet est de repos le dimanche (ex: semaine JEU/DIM)
-          else if (restDayIndexes.includes(6)) {
-            if (dayIdx === 6) {
-              weekData.items.push({ dayShort, dayNum, title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" });
-              weekData.items.push({ dayShort, dayNum, title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" });
-            }
-          }
-        }
-        // 4. Vacances scolaires
+        // 3. Vacances scolaires
         else if (holidayMatch) {
           weekData.items.push({ 
             dayShort: dayShort, 
