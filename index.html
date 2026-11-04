@@ -14,10 +14,10 @@
   <meta name="theme-color" content="#ffffff">
 
   <!-- Icônes officielles (Photo de Papounet) -->
-  <link rel="icon" type="image/png" sizes="256x256" href="icon.png?v=7">
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=7">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=7">
-  <link rel="manifest" href="manifest.webmanifest?v=7">
+  <link rel="icon" type="image/png" sizes="256x256" href="icon.png?v=8">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=8">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=8">
+  <link rel="manifest" href="manifest.webmanifest?v=8">
 
   <!-- Polices Google Fonts (Roboto & Roboto Condensed) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +25,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400&family=Roboto:wght@700&display=swap" rel="stylesheet">
 
   <!-- Feuilles de style -->
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 
@@ -42,6 +42,14 @@
     <div class="bottom-bar-inner">
       <input type="date" id="searchDate" aria-label="Choisir une date pour aller à la semaine" placeholder="Choisir une date">
       <button id="searchBtn" onclick="searchDate()" aria-label="Aller à la date sélectionnée">Go</button>
+      
+      <!-- Bouton Bouclier Sécurisé pour Jours de Repos -->
+      <button class="shield-btn" id="shieldBtn" onclick="onShieldClick()" title="Afficher mes jours de repos" aria-label="Afficher mes jours de repos">
+        <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </button>
+
       <button class="today-btn" id="todayBtn" onclick="scrollToCurrentWeek()" title="Revenir à la date du jour" aria-label="Revenir à aujourd'hui">
         <span class="sync-dot" id="syncDot"></span>
         <span id="todayText">Auj.</span>
@@ -52,10 +60,30 @@
     </div>
   </nav>
 
+  <!-- Modale sécurisée pour le code PIN (Bouclier) -->
+  <div id="pinModal" class="pin-modal-overlay" style="display: none;" onclick="onPinOverlayClick(event)">
+    <div class="pin-modal-card" id="pinCard">
+      <div class="pin-modal-icon">🛡️</div>
+      <h2 class="pin-modal-title">Code d'accès</h2>
+      <p class="pin-modal-desc">Entrez le code à 5 chiffres pour afficher les jours de repos personnels.</p>
+      
+      <div class="pin-input-container">
+        <input type="password" id="pinInput" maxlength="5" pattern="[0-9]*" inputmode="numeric" placeholder="•••••" autocomplete="off">
+      </div>
+      
+      <div class="pin-error" id="pinError"></div>
+
+      <div class="pin-modal-buttons">
+        <button class="pin-btn-cancel" onclick="closePinModal()">Annuler</button>
+        <button class="pin-btn-confirm" onclick="submitPin()">Valider</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts modulaires avec cache-busting -->
-  <script src="js/config.js?v=7"></script>
-  <script src="js/engine.js?v=7"></script>
-  <script src="js/api.js?v=7"></script>
-  <script src="js/app.js?v=7"></script>
+  <script src="js/config.js?v=8"></script>
+  <script src="js/engine.js?v=8"></script>
+  <script src="js/api.js?v=8"></script>
+  <script src="js/app.js?v=8"></script>
 </body>
 </html>

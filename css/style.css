@@ -13,6 +13,8 @@
   --badge-purple-text: #8c28cb;
   --badge-yellow-bg: rgba(255, 204, 0, 0.2); 
   --badge-yellow-text: #8a6c00; 
+  --badge-red-bg: rgba(255, 59, 48, 0.18);
+  --badge-red-text: #d70015;
 }
 
 /* ========================================================
@@ -33,6 +35,8 @@ html.dark {
   --badge-purple-text: #d084f7;
   --badge-yellow-bg: rgba(255, 204, 0, 0.25);
   --badge-yellow-text: #ffd54f;
+  --badge-red-bg: rgba(255, 69, 58, 0.25);
+  --badge-red-text: #ff453a;
 }
 
 html.dark .bottom-bar {
@@ -250,6 +254,13 @@ body {
   color: var(--accent-gray); 
 }
 
+/* Jours de repos personnels (Fond Rouge) */
+.type-repos-perso {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-text);
+  font-weight: 700;
+}
+
 .empty-state { 
   padding: 24px 16px; 
   text-align: center; 
@@ -268,7 +279,6 @@ body {
   right: 0; 
   background: var(--card-bg); 
   border-top: 1px solid var(--border-color); 
-  /* Espaces : 10px en haut, 10px entre formulaire et texte, 20px en bas (le double) */
   padding-top: 10px;
   padding-left: 16px;
   padding-right: 16px;
@@ -295,6 +305,7 @@ body {
 /* Hauteur uniforme à 46px */
 .bottom-bar input[type="date"],
 .bottom-bar button#searchBtn,
+.bottom-bar .shield-btn,
 .bottom-bar .today-btn {
   height: 46px;
   min-height: 46px;
@@ -324,7 +335,7 @@ body {
   background: var(--badge-cyan-bg); 
   color: var(--badge-cyan-text); 
   border: none; 
-  padding: 0 18px; 
+  padding: 0 16px; 
   border-radius: 12px; 
   font-size: 0.95rem; 
   font-weight: 700; 
@@ -333,11 +344,47 @@ body {
   flex-shrink: 0; 
 }
 
+/* Bouton Bouclier Sécurisé */
+.bottom-bar .shield-btn {
+  width: 46px;
+  min-width: 46px;
+  background: var(--badge-cyan-bg);
+  color: var(--badge-cyan-text);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.shield-icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+
+/* État actif du bouclier (mode repos perso déverrouillé) */
+.bottom-bar .shield-btn.active {
+  background: var(--badge-red-bg);
+  color: var(--badge-red-text);
+  border-color: var(--badge-red-text);
+  box-shadow: 0 0 12px rgba(255, 59, 48, 0.35);
+}
+
+.bottom-bar .shield-btn.active .shield-icon {
+  fill: currentColor;
+  transform: scale(1.08);
+}
+
 .bottom-bar .today-btn { 
   background: var(--badge-cyan-bg); 
   color: var(--badge-cyan-text); 
   border: none; 
-  padding: 0 16px; 
+  padding: 0 14px; 
   border-radius: 12px; 
   font-size: 0.92rem; 
   font-weight: 700; 
@@ -380,7 +427,8 @@ body {
 }
 
 .bottom-bar button:active,
-.bottom-bar .today-btn:active { 
+.bottom-bar .today-btn:active,
+.bottom-bar .shield-btn:active { 
   opacity: 0.6; 
   transform: scale(0.97); 
 }
@@ -399,6 +447,133 @@ body {
   font-weight: 500; 
   margin: 0;
   padding: 0;
+}
+
+/* ========================================================
+   MODALE CODE PIN (BOUCLIER SÉCURISÉ)
+   ======================================================== */
+.pin-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.pin-modal-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 24px 20px;
+  width: 100%;
+  max-width: 310px;
+  text-align: center;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  animation: modalPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.pin-modal-card.shake {
+  animation: pinShake 0.4s ease-in-out;
+}
+
+@keyframes pinShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-10px); }
+  40%, 80% { transform: translateX(10px); }
+}
+
+.pin-modal-icon {
+  font-size: 2.2rem;
+  margin-bottom: 8px;
+}
+
+.pin-modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.pin-modal-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin-bottom: 18px;
+}
+
+.pin-input-container {
+  margin-bottom: 10px;
+}
+
+.pin-input-container input {
+  width: 160px;
+  height: 48px;
+  font-size: 1.6rem;
+  letter-spacing: 8px;
+  text-align: center;
+  background: var(--bg-color);
+  color: var(--text-main);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pin-input-container input:focus {
+  border-color: var(--accent-blue);
+}
+
+.pin-error {
+  color: #ff3b30;
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-height: 18px;
+  margin-bottom: 14px;
+}
+
+.pin-modal-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.pin-btn-cancel,
+.pin-btn-confirm {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.pin-btn-cancel {
+  background: rgba(142, 142, 147, 0.15);
+  color: var(--text-muted);
+}
+
+.pin-btn-confirm {
+  background: var(--accent-blue);
+  color: #ffffff;
+}
+
+.pin-btn-cancel:active,
+.pin-btn-confirm:active {
+  opacity: 0.6;
 }
 
 /* ========================================================

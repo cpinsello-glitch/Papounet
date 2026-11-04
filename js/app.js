@@ -3,6 +3,8 @@
  */
 
 let planningData = [];
+let rawPlanningData = [];
+let isShieldActive = false;
 
 /**
  * Gestion automatique du mode sombre selon le lever/coucher du soleil
@@ -82,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateTodayButton();
   initServiceWorker();
   initSearch();
+  initPinInput();
   loadPlanning();
 });
 
@@ -103,7 +106,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=6').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=8').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -125,15 +128,18 @@ function loadPlanning() {
 
   API.getPlanning({
     onCachedData: (data) => {
-      renderPlanning(data);
+      rawPlanningData = data;
+      renderPlanning(applyShieldMode(data, isShieldActive));
     },
     onFreshData: (data) => {
-      renderPlanning(data);
+      rawPlanningData = data;
+      renderPlanning(applyShieldMode(data, isShieldActive));
     },
     onError: (err, hasCache) => {
       console.warn("Erreur API :", err);
       if (!hasCache) {
-        const localData = PlanningEngine.compute();
+        const localData = PlanningEngine.compute({ showReposPerso: isShieldActive });
+        rawPlanningData = localData;
         renderPlanning(localData);
       }
     },
@@ -144,6 +150,170 @@ function loadPlanning() {
       }
     }
   });
+}
+
+/**
+ * Applique ou retire les jours de repos personnels (mode Bouclier)
+ */
+function applyShieldMode(weeks, showRepos) {
+  if (!weeks || !Array.isArray(weeks)) return [];
+
+  // Si désactivé, filtrer simplement les éventuels items de repos perso
+  if (!showRepos) {
+    return weeks.map(w => ({
+      ...w,
+      items: (w.items || []).filter(item => item.type !== 'repos-perso')
+    }));
+  }
+
+  // Si activé, calculer les jours de repos du cycle de 15 semaines
+  const cycle = PlanningEngine.CYCLE_REPOS;
+  const anchorDate = PlanningEngine.ANCHOR_DATE;
+  const cycleWeeks = PlanningEngine.CYCLE_WEEKS;
+  const shortDays = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
+
+  return weeks.map(w => {
+    // Calcul de l'index du cycle pour cette semaine
+    const weekStart = parseLocalDate(w.startDate);
+    let restDayIndexes = [];
+    if (weekStart) {
+      const diffDays = Math.round((weekStart.getTime() - anchorDate.getTime()) / 86400000);
+      const diffWeeks = Math.floor(diffDays / 7);
+      const cycleIndex = ((diffWeeks % cycleWeeks) + cycleWeeks) % cycleWeeks;
+      restDayIndexes = cycle[cycleIndex] || [];
+    }
+
+    // Filtrer d'abord les anciens repos perso
+    const baseItems = (w.items || []).filter(item => item.type !== 'repos-perso');
+    const newItems = [...baseItems];
+
+    if (weekStart && restDayIndexes.length > 0) {
+      restDayIndexes.forEach(dayIdx => {
+        const d = new Date(weekStart);
+        d.setDate(d.getDate() + dayIdx);
+        const dayNum = PlanningEngine.pad(d.getDate());
+        const dayShort = shortDays[dayIdx];
+
+        // Ajouter l'item de repos personnel
+        newItems.push({
+          dayShort: dayShort,
+          dayNum: dayNum,
+          title: "Repos",
+          time: "",
+          hasTime: false,
+          type: "repos-perso",
+          description: ""
+        });
+      });
+    }
+
+    // Tri des items par jour dans la semaine (du lundi au dimanche)
+    const dayOrder = { 'LUN': 0, 'MAR': 1, 'MER': 2, 'JEU': 3, 'VEN': 4, 'SAM': 5, 'DIM': 6 };
+    newItems.sort((a, b) => {
+      const diffDay = (dayOrder[a.dayShort] || 0) - (dayOrder[b.dayShort] || 0);
+      if (diffDay !== 0) return diffDay;
+      // Si même jour, mettre le repos en premier ou ordonner
+      if (a.type === 'repos-perso') return -1;
+      if (b.type === 'repos-perso') return 1;
+      return 0;
+    });
+
+    return {
+      ...w,
+      items: newItems
+    };
+  });
+}
+
+/**
+ * Gestion du clic sur le bouton Bouclier
+ */
+function onShieldClick() {
+  if (isShieldActive) {
+    // Si déjà actif, le fermer et revenir à l'affichage de base
+    isShieldActive = false;
+    document.getElementById('shieldBtn').classList.remove('active');
+    renderPlanning(applyShieldMode(rawPlanningData, false));
+  } else {
+    // Ouvrir la modale de saisie du code PIN
+    openPinModal();
+  }
+}
+
+/**
+ * Modale Code PIN
+ */
+function openPinModal() {
+  const modal = document.getElementById('pinModal');
+  const input = document.getElementById('pinInput');
+  const error = document.getElementById('pinError');
+  const card = document.getElementById('pinCard');
+
+  if (modal && input) {
+    input.value = '';
+    if (error) error.innerText = '';
+    if (card) card.classList.remove('shake');
+    modal.style.display = 'flex';
+    setTimeout(() => input.focus(), 150);
+  }
+}
+
+function closePinModal() {
+  const modal = document.getElementById('pinModal');
+  const input = document.getElementById('pinInput');
+  if (modal) modal.style.display = 'none';
+  if (input) input.blur();
+}
+
+function onPinOverlayClick(event) {
+  if (event.target && event.target.id === 'pinModal') {
+    closePinModal();
+  }
+}
+
+function initPinInput() {
+  const input = document.getElementById('pinInput');
+  if (input) {
+    input.addEventListener('input', () => {
+      // Validation automatique dès que 5 chiffres sont entrés
+      if (input.value.length === 5) {
+        submitPin();
+      }
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        submitPin();
+      }
+    });
+  }
+}
+
+function submitPin() {
+  const input = document.getElementById('pinInput');
+  const error = document.getElementById('pinError');
+  const card = document.getElementById('pinCard');
+  if (!input) return;
+
+  const entered = input.value.trim();
+
+  // Vérification avec les 2 codes autorisés : 66526 ou 84247
+  if (CONFIG.AUTHORIZED_PINS.includes(entered)) {
+    isShieldActive = true;
+    closePinModal();
+    const btn = document.getElementById('shieldBtn');
+    if (btn) btn.classList.add('active');
+    renderPlanning(applyShieldMode(rawPlanningData, true));
+  } else {
+    if (error) error.innerText = "Code incorrect";
+    if (card) {
+      card.classList.remove('shake');
+      void card.offsetWidth; // Déclenchement du reflow
+      card.classList.add('shake');
+    }
+    input.value = '';
+    input.focus();
+  }
 }
 
 /**
@@ -186,7 +356,7 @@ function renderPlanning(data) {
         const nextItem = week.items[index + 1];
         const prevItem = week.items[index - 1];
 
-        // Vérifier si 2 événements ont lieu le même jour (ex: DIM 15)
+        // Vérifier si 2 événements ont lieu le même jour (suppression du trait)
         const isSameDayAsNext = nextItem && nextItem.dayNum === item.dayNum && nextItem.dayShort === item.dayShort;
         const isSameDayAsPrev = prevItem && prevItem.dayNum === item.dayNum && prevItem.dayShort === item.dayShort;
 

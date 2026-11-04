@@ -70,7 +70,8 @@ const PlanningEngine = {
     });
   },
 
-  compute() {
+  compute(options = {}) {
+    const showReposPerso = !!options.showReposPerso;
     const cycle = this.CYCLE_REPOS;
     const holidays = this.getHolidays(); 
     const now = new Date();
@@ -122,7 +123,22 @@ const PlanningEngine = {
 
         const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
 
-        // Recherche des événements connus
+        // Si le mode repos personnel est activé et que Papounet est de repos ce jour-là
+        const isPersonalRestDay = restDayIndexes.includes(dayIdx);
+
+        if (showReposPerso && isPersonalRestDay) {
+          weekData.items.push({
+            dayShort: shortDays[dayIdx],
+            dayNum: this.pad(currentD.getDate()),
+            title: "Repos",
+            time: "",
+            hasTime: false,
+            type: "repos-perso",
+            description: ""
+          });
+        }
+
+        // Recherche des événements confirmés de garde / RV
         const matched = this.CONFIRMED_EVENTS.filter(ev => {
           const [y, m, d] = ev.date.split('-').map(Number);
           return d === currentD.getDate() && (m - 1) === currentD.getMonth() && y === currentD.getFullYear();
@@ -150,7 +166,7 @@ const PlanningEngine = {
             type: 'holiday', 
             description: "" 
           });
-        } else if (!isConfirmedWeek && restDayIndexes.includes(dayIdx)) {
+        } else if (!isConfirmedWeek && restDayIndexes.includes(dayIdx) && !showReposPerso) {
           weekData.items.push({ 
             dayShort: shortDays[dayIdx], 
             dayNum: this.pad(currentD.getDate()), 

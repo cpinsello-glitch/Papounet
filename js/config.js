@@ -1,6 +1,5 @@
 /**
  * Configuration de l'application Papounet 🥰
- * 100% hébergé sur Cloudflare (sans Google Apps Script)
  */
 const CONFIG = {
   // Point d'accès de l'API Cloudflare Pages Functions
@@ -14,5 +13,11 @@ const CONFIG = {
   CACHE_TTL_MS: 30 * 60 * 1000,
   
   // Horizon de calcul en mois
-  MONTHS_HORIZON: 8
+  MONTHS_HORIZON: 8,
+
+  // Codes PIN autorisés pour l'affichage des jours de repos personnels
+  AUTHORIZED_PINS: ["66526", "84247"],
+
+  // Identifiant de l'agenda des jours de repos
+  CALENDAR_REPOS_ID: "8u93p21a2o1jtts2ocssuqegm0@group.calendar.google.com"
 };
