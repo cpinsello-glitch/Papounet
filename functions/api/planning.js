@@ -91,8 +91,10 @@ function getFallbackSchedule() {
       isConfirmed: true,
       hasAlert: false,
       items: [
-        { dayShort: "VEN", dayNum: "06", title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "DIM", dayNum: "08", title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" }
+        { date: "2026-11-06", dayShort: "VEN", dayNum: "06", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-06", dayShort: "VEN", dayNum: "06", title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-11-07", dayShort: "SAM", dayNum: "07", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-08", dayShort: "DIM", dayNum: "08", title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {
@@ -103,8 +105,10 @@ function getFallbackSchedule() {
       isConfirmed: true,
       hasAlert: false,
       items: [
-        { dayShort: "DIM", dayNum: "15", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "DIM", dayNum: "15", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
+        { date: "2026-11-12", dayShort: "JEU", dayNum: "12", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-15", dayShort: "DIM", dayNum: "15", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-15", dayShort: "DIM", dayNum: "15", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-11-15", dayShort: "DIM", dayNum: "15", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {
@@ -115,11 +119,14 @@ function getFallbackSchedule() {
       isConfirmed: true,
       hasAlert: false,
       items: [
-        { dayShort: "MAR", dayNum: "17", title: "Opération Nolan", time: "", hasTime: false, type: "rdv", description: "" },
-        { dayShort: "MER", dayNum: "18", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "MER", dayNum: "18", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "DIM", dayNum: "22", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "DIM", dayNum: "22", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
+        { date: "2026-11-17", dayShort: "MAR", dayNum: "17", title: "Opération Nolan", time: "", hasTime: false, type: "rdv", description: "" },
+        { date: "2026-11-18", dayShort: "MER", dayNum: "18", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-18", dayShort: "MER", dayNum: "18", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-11-18", dayShort: "MER", dayNum: "18", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-11-19", dayShort: "JEU", dayNum: "19", title: "REC ?", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-22", dayShort: "DIM", dayNum: "22", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-22", dayShort: "DIM", dayNum: "22", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-11-22", dayShort: "DIM", dayNum: "22", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {
@@ -130,8 +137,10 @@ function getFallbackSchedule() {
       isConfirmed: false,
       hasAlert: false,
       items: [
-        { dayShort: "MER", dayNum: "25", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "MER", dayNum: "25", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
+        { date: "2026-11-23", dayShort: "LUN", dayNum: "23", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-25", dayShort: "MER", dayNum: "25", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-11-25", dayShort: "MER", dayNum: "25", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-11-25", dayShort: "MER", dayNum: "25", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {
@@ -142,10 +151,12 @@ function getFallbackSchedule() {
       isConfirmed: false,
       hasAlert: false,
       items: [
-        { dayShort: "MER", dayNum: "02", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "MER", dayNum: "02", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "DIM", dayNum: "06", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
-        { dayShort: "DIM", dayNum: "06", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
+        { date: "2026-12-02", dayShort: "MER", dayNum: "02", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-12-02", dayShort: "MER", dayNum: "02", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-12-02", dayShort: "MER", dayNum: "02", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-12-06", dayShort: "DIM", dayNum: "06", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
+        { date: "2026-12-06", dayShort: "DIM", dayNum: "06", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
+        { date: "2026-12-06", dayShort: "DIM", dayNum: "06", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
       ]
     },
     {
@@ -156,13 +167,18 @@ function getFallbackSchedule() {
       isConfirmed: false,
       hasAlert: false,
       items: [
-        { dayShort: "LUN", dayNum: "21", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" },
-        { dayShort: "MAR", dayNum: "22", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" },
-        { dayShort: "MER", dayNum: "23", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" },
-        { dayShort: "JEU", dayNum: "24", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" },
-        { dayShort: "VEN", dayNum: "25", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" },
-        { dayShort: "SAM", dayNum: "26", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" },
-        { dayShort: "DIM", dayNum: "27", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" }
+        { date: "2026-12-25", dayShort: "VEN", dayNum: "25", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" }
+      ]
+    },
+    {
+      weekId: "W_2026_53",
+      title: "Semaine 53 • 28 Décembre - 3 Janvier",
+      startDate: "2026-12-28",
+      endDate: "2027-01-03",
+      isConfirmed: false,
+      hasAlert: false,
+      items: [
+        { date: "2027-01-01", dayShort: "VEN", dayNum: "01", title: "FER", time: "", hasTime: false, type: "repos-perso", description: "" }
       ]
     }
   ];

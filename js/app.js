@@ -3,6 +3,7 @@
  */
 
 let planningData = [];
+let rawPlanningData = [];
 let isShieldActive = false;
 let savedBodyScrollY = 0;
 
@@ -93,7 +94,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=12').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=13').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -107,83 +108,36 @@ function initServiceWorker() {
 }
 
 /**
- * Fusionne les événements externes (Google Apps Script) dans le moteur sans doublons
- */
-function mergeExternalEvents(weeks) {
-  if (!weeks || !Array.isArray(weeks)) return;
-
-  // Réinitialiser les listes à partir des événements de base pour purger tout décalage
-  PlanningEngine.CONFIRMED_EVENTS = PlanningEngine.BASE_CONFIRMED_EVENTS.map(ev => ({ ...ev }));
-  PlanningEngine.REPOS_EVENTS = PlanningEngine.BASE_REPOS_EVENTS.map(ev => ({ ...ev }));
-
-  weeks.forEach(w => {
-    (w.items || []).forEach(item => {
-      // Ignorer les repos théoriques dans la fusion
-      if (item.type === 'theory') return;
-
-      // Calcul certifié de la date exacte YYYY-MM-DD
-      const dateStr = PlanningEngine.getExactDateForItem(w, item);
-      if (!dateStr) return;
-
-      const rawTitle = (item.title || "").trim();
-      const upperTitle = rawTitle.toUpperCase();
-
-      // Gestion des événements de repos personnels (RC, RH, REC ?, etc.)
-      const isRepos = item.type === 'repos-perso' || 
-                      upperTitle === 'RC' || 
-                      upperTitle === 'RH' || 
-                      upperTitle.startsWith('REC');
-
-      if (isRepos) {
-        const existsRepos = PlanningEngine.REPOS_EVENTS.some(r => r.date === dateStr);
-        if (!existsRepos) {
-          PlanningEngine.REPOS_EVENTS.push({
-            date: dateStr,
-            title: rawTitle
-          });
-        }
-        return;
-      }
-
-      // Détection des doublons pour la garde / RV : même date et même titre (insensible à la casse)
-      const exists = PlanningEngine.CONFIRMED_EVENTS.some(ev => 
-        ev.date === dateStr && ev.title.trim().toLowerCase() === rawTitle.toLowerCase()
-      );
-
-      if (!exists) {
-        PlanningEngine.CONFIRMED_EVENTS.push({
-          date: dateStr,
-          title: rawTitle,
-          time: item.time || "",
-          type: item.type || 'confirmed'
-        });
-      }
-    });
-  });
-}
-
-/**
  * Chargement et synchronisation du planning
  */
 function loadPlanning() {
   const syncDot = document.getElementById('syncDot');
 
-  // 1. Rendu immédiat avec le moteur (Mode normal ou admin)
-  const currentData = PlanningEngine.compute({ showReposPerso: isShieldActive });
-  renderPlanning(currentData);
+  // 1. Rendu immédiat à partir du cache local ou des données initiales (0ms d'attente)
+  const cached = API.getLocalCache();
+  if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
+    rawPlanningData = cached.data;
+  } else {
+    rawPlanningData = PlanningEngine.getInitialData();
+  }
+  renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, isShieldActive));
 
-  // 2. Synchronisation réseau en arrière-plan
+  // 2. Synchronisation réseau en arrière-plan avec l'API
   API.getPlanning({
     onCachedData: (data) => {
-      mergeExternalEvents(data);
-      renderPlanning(PlanningEngine.compute({ showReposPerso: isShieldActive }));
+      if (Array.isArray(data) && data.length > 0) {
+        rawPlanningData = data;
+        renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, isShieldActive));
+      }
     },
     onFreshData: (data) => {
-      mergeExternalEvents(data);
-      renderPlanning(PlanningEngine.compute({ showReposPerso: isShieldActive }));
+      if (Array.isArray(data) && data.length > 0) {
+        rawPlanningData = data;
+        renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, isShieldActive));
+      }
     },
     onError: (err) => {
-      console.info("Utilisation du moteur local Papounet.");
+      console.info("Utilisation des données locales/calculées.");
     },
     onSyncStatus: (isSyncing) => {
       if (syncDot) {
@@ -203,7 +157,7 @@ function onShieldClick() {
     isShieldActive = false;
     const btn = document.getElementById('shieldBtn');
     if (btn) btn.classList.remove('active');
-    renderPlanning(PlanningEngine.compute({ showReposPerso: false }));
+    renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, false));
   } else {
     // Ouverture de la modale Admin Access
     openPinModal();
@@ -292,9 +246,8 @@ function submitPin() {
     const btn = document.getElementById('shieldBtn');
     if (btn) btn.classList.add('active');
     
-    // Rendu en Mode Admin : jours de repos en rouge et garde sur tous les 8 mois
-    const adminData = PlanningEngine.compute({ showReposPerso: true });
-    renderPlanning(adminData);
+    // Rendu en Mode Admin : visibilité sur 8 mois pour les 3 calendriers avec repos en rouge
+    renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, true));
   } else {
     if (error) error.innerText = "Code incorrect";
     if (card) {

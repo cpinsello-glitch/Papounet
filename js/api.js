@@ -12,9 +12,9 @@ const API = {
     if (cached && cached.data && Array.isArray(cached.data) && cached.data.length > 0) {
       if (onCachedData) onCachedData(cached.data, cached.timestamp);
     } else if (typeof PlanningEngine !== 'undefined') {
-      // Calcul local immédiat (0ms d'attente)
-      const computed = PlanningEngine.compute();
-      if (onCachedData) onCachedData(computed, Date.now());
+      // Données locales initiales immédiates (0ms d'attente)
+      const initial = PlanningEngine.getInitialData();
+      if (onCachedData) onCachedData(initial, Date.now());
     }
 
     // 2. Requête vers la fonction Cloudflare Pages
@@ -47,11 +47,11 @@ const API = {
     } catch (err) {
       console.info("Info API Cloudflare : utilisation des données locales/calculées.", err.message);
       
-      // Si nous n'avions pas de cache, générer le planning via le moteur local
+      // Si nous n'avions pas de cache, charger les données de référence
       if (!cached && typeof PlanningEngine !== 'undefined') {
-        const computed = PlanningEngine.compute();
-        this.saveLocalCache(computed);
-        if (onFreshData) onFreshData(computed);
+        const initial = PlanningEngine.getInitialData();
+        this.saveLocalCache(initial);
+        if (onFreshData) onFreshData(initial);
       } else if (onError) {
         onError(err, !!cached);
       }
