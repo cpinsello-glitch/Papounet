@@ -1,17 +1,17 @@
-const CACHE_NAME = 'papounet-v15';
+const CACHE_NAME = 'papounet-v16';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './css/style.css?v=15',
-  './js/config.js?v=15',
-  './js/engine.js?v=15',
-  './js/api.js?v=15',
-  './js/app.js?v=15',
-  './manifest.webmanifest?v=15',
-  './icon.png?v=15',
-  './icon-192.png?v=15',
-  './icon-512.png?v=15',
-  './apple-touch-icon.png?v=15'
+  './css/style.css?v=16',
+  './js/config.js?v=16',
+  './js/engine.js?v=16',
+  './js/api.js?v=16',
+  './js/app.js?v=16',
+  './manifest.webmanifest?v=16',
+  './icon.png?v=16',
+  './icon-192.png?v=16',
+  './icon-512.png?v=16',
+  './apple-touch-icon.png?v=16'
 ];
 
 self.addEventListener('install', (event) => {
@@ -27,7 +27,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key !== CACHE_NAME && key !== `${CACHE_NAME}-api`) {
             return caches.delete(key);
           }
         })
@@ -45,7 +45,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response && response.status === 200) {
             const clone = response.clone();
-            caches.open('papounet-api-cache').then((cache) => {
+            caches.open(`${CACHE_NAME}-api`).then((cache) => {
               cache.put(event.request, clone);
             });
           }

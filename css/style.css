@@ -254,6 +254,16 @@ body {
   color: var(--accent-gray); 
 }
 
+.type-theory .event-title {
+  font-weight: 500;
+}
+
+.type-theory .event-time {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  font-style: italic;
+}
+
 /* Jours de repos personnels (Fond Rouge) */
 .type-repos-perso {
   background: var(--badge-red-bg);

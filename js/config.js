@@ -5,9 +5,9 @@ const CONFIG = {
   // Point d'accès de l'API Cloudflare Pages Functions
   API_URL: "/api/planning",
   
-  // Clés de stockage local (cache)
-  STORAGE_KEY_DATA: "papounet_planning_data",
-  STORAGE_KEY_TIMESTAMP: "papounet_planning_timestamp",
+  // Clés de stockage local (cache) versionné
+  STORAGE_KEY_DATA: "papounet_planning_v16",
+  STORAGE_KEY_TIMESTAMP: "papounet_planning_timestamp_v16",
   
   // Durée de validité du cache en millisecondes (15 minutes)
   CACHE_TTL_MS: 15 * 60 * 1000,

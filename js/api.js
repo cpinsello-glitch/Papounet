@@ -7,13 +7,18 @@ const API = {
    * avec secours immédiat sur le cache et le moteur local.
    */
   async getPlanning({ onCachedData, onFreshData, onError, onSyncStatus }) {
-    // 1. Charger immédiatement le cache local ou calculer en local
+    // Nettoyage proactif de tout cache obsolète
+    try {
+      localStorage.removeItem("papounet_planning_data");
+      localStorage.removeItem("papounet_planning_timestamp");
+    } catch (e) {}
+
+    // 1. Charger immédiatement le cache local ou calculer en local (0ms de latence)
     const cached = this.getLocalCache();
     if (cached && cached.data && Array.isArray(cached.data) && cached.data.length > 0) {
       if (onCachedData) onCachedData(cached.data, cached.timestamp);
     } else if (typeof PlanningEngine !== 'undefined') {
-      // Données locales initiales immédiates (0ms d'attente)
-      const initial = PlanningEngine.getInitialData();
+      const initial = PlanningEngine.compute({ isAdmin: false });
       if (onCachedData) onCachedData(initial, Date.now());
     }
 
@@ -45,11 +50,10 @@ const API = {
         onFreshData(freshData);
       }
     } catch (err) {
-      console.info("Info API Cloudflare : utilisation des données locales/calculées.", err.message);
+      console.info("Info API Cloudflare : utilisation des données locales.", err.message);
       
-      // Si nous n'avions pas de cache, charger les données de référence
       if (!cached && typeof PlanningEngine !== 'undefined') {
-        const initial = PlanningEngine.getInitialData();
+        const initial = PlanningEngine.compute({ isAdmin: false });
         this.saveLocalCache(initial);
         if (onFreshData) onFreshData(initial);
       } else if (onError) {
@@ -65,6 +69,13 @@ const API = {
       const raw = localStorage.getItem(CONFIG.STORAGE_KEY_DATA);
       const time = localStorage.getItem(CONFIG.STORAGE_KEY_TIMESTAMP);
       if (!raw) return null;
+
+      // Invalider immédiatement si l'ancien cache contenait "Busy"
+      if (raw.toLowerCase().includes('"busy"')) {
+        localStorage.removeItem(CONFIG.STORAGE_KEY_DATA);
+        return null;
+      }
+
       return {
         data: JSON.parse(raw),
         timestamp: time ? parseInt(time, 10) : Date.now()

@@ -4,11 +4,11 @@
  * Règles :
  * - Mode Normal (enfants et maman) :
  *     - Semaines confirmées (~3 semaines) : Garde Nolan & Thaïs + RV enfants (💡). AUCUN repos.
- *     - Au-delà de 3 semaines (futur) : Repos théorique en GRIS selon le roulement de 15 semaines + RV enfants (💡).
+ *     - Au-delà de 3 semaines (sur 8 mois glissants) : Repos théorique en GRIS selon le roulement de 15 semaines + RV enfants (💡).
  * - Mode Admin (Papounet avec code 66526 ou 84247) :
  *     - Tous les 8 mois : RV enfants (💡).
  *     - Tous les 8 mois : Garde Nolan & Thaïs.
- *     - Tous les 8 mois : Jours de repos en ROUGE avec le titre exact (RC, RH, REC ?, FER...).
+ *     - Tous les 8 mois : Jours de repos en ROUGE avec le titre exact (RC, RH, REC ?, FER, ou Repos).
  */
 const PlanningEngine = {
   ANCHOR_DATE: new Date(2026, 8, 21), // Lundi 21 septembre 2026 (Semaine 39)
@@ -87,28 +87,15 @@ const PlanningEngine = {
     const day = current.getDay();
     const diffToCurrentSunday = (day === 0) ? 0 : (7 - day);
 
-    const currentSunday = new Date(current);
-    currentSunday.setDate(current.getDate() + diffToCurrentSunday);
-    currentSunday.setHours(22, 0, 0, 0);
+    const currentSunday = new Date(current.getFullYear(), current.getMonth(), current.getDate() + diffToCurrentSunday, 22, 0, 0, 0);
 
     let targetWeeksAhead = 3;
     if (current.getTime() >= currentSunday.getTime()) {
       targetWeeksAhead = 4;
     }
 
-    const deadlineSunday = new Date(current);
-    deadlineSunday.setDate(current.getDate() + diffToCurrentSunday + (targetWeeksAhead - 1) * 7);
-    deadlineSunday.setHours(23, 59, 59, 999);
+    const deadlineSunday = new Date(current.getFullYear(), current.getMonth(), current.getDate() + diffToCurrentSunday + (targetWeeksAhead - 1) * 7, 23, 59, 59, 999);
     return deadlineSunday;
-  },
-
-  getMondayOfISOWeek(year, week) {
-    const jan4 = new Date(year, 0, 4);
-    const dayOfWeek = jan4.getDay() || 7;
-    const firstMonday = new Date(year, 0, 4 - dayOfWeek + 1);
-    const targetMonday = new Date(firstMonday.getFullYear(), firstMonday.getMonth(), firstMonday.getDate() + (week - 1) * 7);
-    targetMonday.setHours(0, 0, 0, 0);
-    return targetMonday;
   },
 
   getWeekNumber(d) {
@@ -121,7 +108,7 @@ const PlanningEngine = {
   pad(n) { return n < 10 ? '0' + n : n; },
 
   /**
-   * Calcul principal du planning sur 8 mois
+   * Calcul principal du planning sur 8 mois glissants
    * @param {Object} options
    * @param {boolean} options.isAdmin Mode Admin actif
    */
@@ -132,12 +119,9 @@ const PlanningEngine = {
 
     const currentDay = now.getDay();
     const diffToMonday = (currentDay === 0 ? -6 : 1 - currentDay);
-    const startMonday = new Date(now);
-    startMonday.setDate(now.getDate() + diffToMonday);
-    startMonday.setHours(0, 0, 0, 0);
+    const startMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday, 0, 0, 0, 0);
 
-    const endDate = new Date(startMonday);
-    endDate.setMonth(endDate.getMonth() + this.MONTHS_HORIZON);
+    const endDate = new Date(startMonday.getFullYear(), startMonday.getMonth() + this.MONTHS_HORIZON, startMonday.getDate());
 
     const weeks = [];
     let iterDate = new Date(startMonday);
@@ -145,12 +129,11 @@ const PlanningEngine = {
     const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
     while (iterDate < endDate) {
-      const isoWeek = this.getWeekNumber(iterDate);
-      const isoYear = iterDate.getFullYear();
+      const weekStart = new Date(iterDate);
+      const weekEnd = new Date(iterDate.getFullYear(), iterDate.getMonth(), iterDate.getDate() + 6);
 
-      const weekStart = this.getMondayOfISOWeek(isoYear, isoWeek);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
+      const isoWeek = this.getWeekNumber(weekStart);
+      const isoYear = weekStart.getFullYear();
 
       // Calcul du roulement de 15 semaines
       const diffDays = Math.round((weekStart.getTime() - this.ANCHOR_DATE.getTime()) / 86400000);
@@ -226,7 +209,7 @@ const PlanningEngine = {
             });
           }
         }
-        // B. MODE NORMAL : Repos théorique en GRIS uniquement APRÈS les 3 semaines confirmées
+        // B. MODE NORMAL : Repos théorique en GRIS uniquement APRÈS les 3 semaines confirmées (sur 8 mois glissants)
         else if (!isConfirmedWeek) {
           if (reposMatch || isRestFromCycle) {
             weekData.items.push({
@@ -246,7 +229,7 @@ const PlanningEngine = {
         const matchedEvents = this.CONFIRMED_EVENTS.filter(ev => ev.date === dateStr);
         matchedEvents.forEach(ev => {
           // - RV enfants (💡) : toujours visible
-          // - Garde enfants : toujours visible en Admin, visible uniquement sur 3 semaines en Normal
+          // - Garde enfants : toujours visible en Admin, visible uniquement sur ~3 semaines en Normal
           if (ev.type === 'rdv' || isConfirmedWeek || isAdmin) {
             weekData.items.push({
               date: dateStr,
@@ -276,6 +259,10 @@ const PlanningEngine = {
     return weeks;
   },
 
+  getInitialData() {
+    return this.compute({ isAdmin: false });
+  },
+
   /**
    * Intègre des événements externes distants sans doublons et sans "Busy"
    */
@@ -288,11 +275,14 @@ const PlanningEngine = {
         // Éliminer strictement tout événement "Busy" ou vide
         if (!title || title.toLowerCase() === 'busy') return;
 
+        // Ne pas fusionner les repos théoriques dans la liste des événements réels
+        if (item.type === 'theory' || title.toLowerCase().includes('théorique')) return;
+
         const dateStr = item.date;
         if (!dateStr) return;
 
         const upperTitle = title.toUpperCase();
-        const isRepos = item.type === 'repos-perso' || upperTitle === 'RC' || upperTitle === 'RH' || upperTitle.startsWith('REC') || upperTitle === 'FER';
+        const isRepos = item.type === 'repos-perso' || upperTitle === 'RC' || upperTitle === 'RH' || upperTitle.startsWith('REC') || upperTitle === 'FER' || upperTitle === 'REPOS';
 
         if (isRepos) {
           const exists = this.REPOS_EVENTS.some(r => r.date === dateStr);
