@@ -1,17 +1,17 @@
-const CACHE_NAME = 'papounet-v13';
+const CACHE_NAME = 'papounet-v14';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './css/style.css?v=13',
-  './js/config.js?v=13',
-  './js/engine.js?v=13',
-  './js/api.js?v=13',
-  './js/app.js?v=13',
-  './manifest.webmanifest?v=13',
-  './icon.png?v=13',
-  './icon-192.png?v=13',
-  './icon-512.png?v=13',
-  './apple-touch-icon.png?v=13'
+  './css/style.css?v=14',
+  './js/config.js?v=14',
+  './js/engine.js?v=14',
+  './js/api.js?v=14',
+  './js/app.js?v=14',
+  './manifest.webmanifest?v=14',
+  './icon.png?v=14',
+  './icon-192.png?v=14',
+  './icon-512.png?v=14',
+  './apple-touch-icon.png?v=14'
 ];
 
 self.addEventListener('install', (event) => {
