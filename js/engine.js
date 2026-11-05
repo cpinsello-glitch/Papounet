@@ -1,179 +1,316 @@
 /**
- * Moteur de calendrier Papounet
- * Basé 100% sur la lecture réelle des 3 agendas Google (zéro cycle théorique)
+ * Moteur de calendrier Papounet 🥰
+ * 
+ * Règles :
+ * - Mode Normal (enfants et maman) :
+ *     - Semaines confirmées (~3 semaines) : Garde Nolan & Thaïs + RV enfants (💡). AUCUN repos.
+ *     - Au-delà de 3 semaines (futur) : Repos théorique en GRIS selon le roulement de 15 semaines + RV enfants (💡).
+ * - Mode Admin (Papounet avec code 66526 ou 84247) :
+ *     - Tous les 8 mois : RV enfants (💡).
+ *     - Tous les 8 mois : Garde Nolan & Thaïs.
+ *     - Tous les 8 mois : Jours de repos en ROUGE avec le titre exact (RC, RH, REC ?, FER...).
  */
 const PlanningEngine = {
+  ANCHOR_DATE: new Date(2026, 8, 21), // Lundi 21 septembre 2026 (Semaine 39)
+  CYCLE_WEEKS: 15,
   MONTHS_HORIZON: 8,
   ALERTES_SEMAINES: [40],
 
+  // Roulement officiel de 15 semaines
+  // 0: LUN, 1: MAR, 2: MER, 3: JEU, 4: VEN, 5: SAM, 6: DIM
+  CYCLE_REPOS: [
+    [4, 5],    // S39 (Anchor) : VEN, SAM
+    [1, 6],    // S40 : MAR, DIM
+    [5, 6],    // S41 : SAM, DIM
+    [0, 5],    // S42 : LUN, SAM
+    [3, 6],    // S43 : JEU, DIM
+    [5, 6],    // S44 : SAM, DIM
+    [4, 5],    // S45 : VEN, SAM (RC le 6, RH le 7)
+    [3, 6],    // S46 : JEU, DIM (RH le 12, RC le 15)
+    [2, 3, 6], // S47 : MER 18 (RC), JEU 19 (REC ?), DIM 22 (RH) (Samedi 21 travaillé)
+    [0, 2],    // S48 : LUN 23 (RH), MER 25 (RH)
+    [2, 6],    // S49 : MER 02 (RH), DIM 06 (RC) (Mardi 1er travaillé)
+    [5, 6],    // S50 : SAM, DIM
+    [4, 5],    // S51 : VEN, SAM
+    [2, 6],    // S52 : MER, DIM
+    [5, 6]     // S53 : SAM, DIM
+  ],
+
+  // Événements réels de repos connus (RC, RH, REC ?, FER...)
+  REPOS_EVENTS: [
+    { date: "2026-10-28", title: "RC" },
+    { date: "2026-11-01", title: "RH" },
+    { date: "2026-11-06", title: "RC" },
+    { date: "2026-11-07", title: "RH" },
+    { date: "2026-11-12", title: "RH" },
+    { date: "2026-11-15", title: "RC" },
+    { date: "2026-11-18", title: "RC" },
+    { date: "2026-11-19", title: "REC ?" },
+    { date: "2026-11-22", title: "RH" },
+    { date: "2026-11-23", title: "RH" },
+    { date: "2026-11-25", title: "RH" },
+    { date: "2026-12-02", title: "RH" },
+    { date: "2026-12-06", title: "RC" },
+    { date: "2027-01-01", title: "FER" }
+  ],
+
+  // Événements confirmés de garde et rendez-vous
+  CONFIRMED_EVENTS: [
+    // Semaine 45
+    { date: "2026-11-06", title: "Je viens chercher les enfants", time: "à 17h00", type: "confirmed" },
+    { date: "2026-11-08", title: "Je ramène les enfants", time: "à 11h00", type: "confirmed" },
+
+    // Semaine 46
+    { date: "2026-11-15", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-11-15", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 47
+    { date: "2026-11-17", title: "Opération Nolan", time: "", type: "rdv" },
+    { date: "2026-11-18", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-11-18", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+    { date: "2026-11-22", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-11-22", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 48
+    { date: "2026-11-25", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-11-25", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+
+    // Semaine 49
+    { date: "2026-12-02", title: "Je viens chercher les enfants", time: "à 12h30", type: "confirmed" },
+    { date: "2026-12-02", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" },
+    { date: "2026-12-06", title: "Je viens chercher les enfants", time: "à 11h00", type: "confirmed" },
+    { date: "2026-12-06", title: "Je ramène les enfants", time: "à 18h00", type: "confirmed" }
+  ],
+
+  getConfirmationDeadline(now) {
+    const current = new Date(now);
+    const day = current.getDay();
+    const diffToCurrentSunday = (day === 0) ? 0 : (7 - day);
+
+    const currentSunday = new Date(current);
+    currentSunday.setDate(current.getDate() + diffToCurrentSunday);
+    currentSunday.setHours(22, 0, 0, 0);
+
+    let targetWeeksAhead = 3;
+    if (current.getTime() >= currentSunday.getTime()) {
+      targetWeeksAhead = 4;
+    }
+
+    const deadlineSunday = new Date(current);
+    deadlineSunday.setDate(current.getDate() + diffToCurrentSunday + (targetWeeksAhead - 1) * 7);
+    deadlineSunday.setHours(23, 59, 59, 999);
+    return deadlineSunday;
+  },
+
+  getMondayOfISOWeek(year, week) {
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const firstMonday = new Date(year, 0, 4 - dayOfWeek + 1);
+    const targetMonday = new Date(firstMonday.getFullYear(), firstMonday.getMonth(), firstMonday.getDate() + (week - 1) * 7);
+    targetMonday.setHours(0, 0, 0, 0);
+    return targetMonday;
+  },
+
+  getWeekNumber(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  },
+
+  pad(n) { return n < 10 ? '0' + n : n; },
+
   /**
-   * Filtre les semaines selon le mode de visualisation :
-   * - Mode Normal (enfants et maman) :
-   *     - RV des enfants (💡) : visible sur les 8 mois
-   *     - Garde Nolan & Thaïs : visible uniquement sur les semaines confirmées (3 semaines)
-   *     - Vacances : visible
-   *     - Agenda Repos : JAMAIS visible
-   * - Mode Admin (Papounet après code PIN) :
-   *     - RV des enfants (💡) : visible sur les 8 mois
-   *     - Garde Nolan & Thaïs : visible sur tous les 8 mois
-   *     - Agenda Repos (RC, RH, REC ?, FER...) : visible sur tous les 8 mois avec fond rouge
-   *     - Vacances : visible
-   *
-   * @param {Array} rawWeeks Données complètes issues des 3 agendas
-   * @param {boolean} isAdmin Indique si le mode admin est actif
-   * @returns {Array} Semaines filtrées
+   * Calcul principal du planning sur 8 mois
+   * @param {Object} options
+   * @param {boolean} options.isAdmin Mode Admin actif
    */
-  filterWeeks(rawWeeks, isAdmin) {
-    if (!rawWeeks || !Array.isArray(rawWeeks)) return [];
+  compute(options = {}) {
+    const isAdmin = !!options.isAdmin;
+    const now = new Date();
+    const confirmDeadline = this.getConfirmationDeadline(now);
 
-    return rawWeeks.map(week => {
-      const isConfirmed = !!week.isConfirmed;
+    const currentDay = now.getDay();
+    const diffToMonday = (currentDay === 0 ? -6 : 1 - currentDay);
+    const startMonday = new Date(now);
+    startMonday.setDate(now.getDate() + diffToMonday);
+    startMonday.setHours(0, 0, 0, 0);
 
-      const filteredItems = (week.items || []).filter(item => {
-        // 1. Les RV des enfants (💡) sont toujours visibles pour tous
-        if (item.type === 'rdv') return true;
+    const endDate = new Date(startMonday);
+    endDate.setMonth(endDate.getMonth() + this.MONTHS_HORIZON);
 
-        // 2. Les vacances scolaires sont toujours visibles
-        if (item.type === 'holiday') return true;
+    const weeks = [];
+    let iterDate = new Date(startMonday);
+    const shortDays = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
+    const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
-        // 3. Les repos personnels (RC, RH, REC ?, FER...) sont UNIQUEMENT visibles en mode admin
-        if (item.type === 'repos-perso') {
-          return !!isAdmin;
-        }
+    while (iterDate < endDate) {
+      const isoWeek = this.getWeekNumber(iterDate);
+      const isoYear = iterDate.getFullYear();
 
-        // 4. Les événements de garde (Nolan & Thaïs)
-        if (item.type === 'confirmed') {
-          // En mode admin : visible sur les 8 mois
-          if (isAdmin) return true;
-          // En mode normal : visible uniquement sur les semaines confirmées (~3 semaines)
-          return isConfirmed;
-        }
+      const weekStart = this.getMondayOfISOWeek(isoYear, isoWeek);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
 
-        // Ignorer tout résidu théorique
-        if (item.type === 'theory') return false;
+      // Calcul du roulement de 15 semaines
+      const diffDays = Math.round((weekStart.getTime() - this.ANCHOR_DATE.getTime()) / 86400000);
+      const diffWeeks = Math.floor(diffDays / 7);
+      const cycleIndex = ((diffWeeks % this.CYCLE_WEEKS) + this.CYCLE_WEEKS) % this.CYCLE_WEEKS;
+      const restDayIndexes = this.CYCLE_REPOS[cycleIndex] || [];
 
-        return false;
+      // Semaine confirmée (~3 semaines)
+      const isConfirmedWeek = (weekEnd.getTime() <= confirmDeadline.getTime());
+
+      // Vérifier si la semaine contient des vacances
+      const holidays = (CONFIG.VACANCES || []).map(v => {
+        const pS = v.start.split('-').map(Number);
+        const pE = v.end.split('-').map(Number);
+        return {
+          title: v.title,
+          start: new Date(pS[0], pS[1] - 1, pS[2], 0, 0, 0).getTime(),
+          end: new Date(pE[0], pE[1] - 1, pE[2], 23, 59, 59, 999).getTime()
+        };
       });
 
-      // Tri chronologique des événements dans la semaine
-      filteredItems.sort((a, b) => {
+      const weekMidTime = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 3).getTime();
+      const holidayForWeek = holidays.find(h => weekMidTime >= h.start && weekMidTime <= h.end);
+
+      let weekTitle = `Semaine ${isoWeek} • ${weekStart.getDate()} ${monthNames[weekStart.getMonth()]} - ${weekEnd.getDate()} ${monthNames[weekEnd.getMonth()]}`;
+      if (holidayForWeek) {
+        weekTitle += ` (Vacances ${holidayForWeek.title})`;
+      }
+
+      const weekData = {
+        weekId: `W_${isoYear}_${isoWeek}`,
+        title: weekTitle,
+        startDate: `${weekStart.getFullYear()}-${this.pad(weekStart.getMonth() + 1)}-${this.pad(weekStart.getDate())}`,
+        endDate: `${weekEnd.getFullYear()}-${this.pad(weekEnd.getMonth() + 1)}-${this.pad(weekEnd.getDate())}`,
+        isConfirmed: isConfirmedWeek,
+        hasAlert: (this.ALERTES_SEMAINES.includes(isoWeek) && !isConfirmedWeek),
+        items: []
+      };
+
+      for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+        const currentD = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + dayIdx);
+        const dayShort = shortDays[dayIdx];
+        const dayNum = this.pad(currentD.getDate());
+        const dateStr = `${currentD.getFullYear()}-${this.pad(currentD.getMonth() + 1)}-${this.pad(currentD.getDate())}`;
+
+        // 1. Détection des jours de repos
+        const reposMatch = this.REPOS_EVENTS.find(r => r.date === dateStr);
+        const isRestFromCycle = restDayIndexes.includes(dayIdx);
+
+        // A. MODE ADMIN : Jours de repos en ROUGE sur tous les 8 mois
+        if (isAdmin) {
+          if (reposMatch) {
+            weekData.items.push({
+              date: dateStr,
+              dayShort,
+              dayNum,
+              title: reposMatch.title,
+              time: "",
+              hasTime: false,
+              type: "repos-perso",
+              description: ""
+            });
+          } else if (isRestFromCycle) {
+            weekData.items.push({
+              date: dateStr,
+              dayShort,
+              dayNum,
+              title: "Repos",
+              time: "",
+              hasTime: false,
+              type: "repos-perso",
+              description: ""
+            });
+          }
+        }
+        // B. MODE NORMAL : Repos théorique en GRIS uniquement APRÈS les 3 semaines confirmées
+        else if (!isConfirmedWeek) {
+          if (reposMatch || isRestFromCycle) {
+            weekData.items.push({
+              date: dateStr,
+              dayShort,
+              dayNum,
+              title: "Repos théorique",
+              time: "À confirmer à S -14 jours",
+              hasTime: true,
+              type: "theory",
+              description: ""
+            });
+          }
+        }
+
+        // 2. Événements de garde et rendez-vous
+        const matchedEvents = this.CONFIRMED_EVENTS.filter(ev => ev.date === dateStr);
+        matchedEvents.forEach(ev => {
+          // - RV enfants (💡) : toujours visible
+          // - Garde enfants : toujours visible en Admin, visible uniquement sur 3 semaines en Normal
+          if (ev.type === 'rdv' || isConfirmedWeek || isAdmin) {
+            weekData.items.push({
+              date: dateStr,
+              dayShort,
+              dayNum,
+              title: ev.title,
+              time: ev.time || "",
+              hasTime: !!ev.time,
+              type: ev.type,
+              description: ""
+            });
+          }
+        });
+      }
+
+      // Tri chronologique des événements de la journée
+      weekData.items.sort((a, b) => {
         const dA = (a.date || "") + (a.time || "");
         const dB = (b.date || "") + (b.time || "");
         return dA.localeCompare(dB);
       });
 
-      return {
-        ...week,
-        items: filteredItems
-      };
-    });
+      weeks.push(weekData);
+      iterDate.setDate(iterDate.getDate() + 7);
+    }
+
+    return weeks;
   },
 
   /**
-   * Données initiales locales de secours (sans aucun repos inventé)
+   * Intègre des événements externes distants sans doublons et sans "Busy"
    */
-  getInitialData() {
-    return [
-      {
-        weekId: "W_2026_45",
-        title: "Semaine 45 • 2 Novembre - 8 Novembre",
-        startDate: "2026-11-02",
-        endDate: "2026-11-08",
-        isConfirmed: true,
-        hasAlert: false,
-        items: [
-          { date: "2026-11-06", dayShort: "VEN", dayNum: "06", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-06", dayShort: "VEN", dayNum: "06", title: "Je viens chercher les enfants", time: "à 17h00", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-11-07", dayShort: "SAM", dayNum: "07", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-08", dayShort: "DIM", dayNum: "08", title: "Je ramène les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" }
-        ]
-      },
-      {
-        weekId: "W_2026_46",
-        title: "Semaine 46 • 9 Novembre - 15 Novembre",
-        startDate: "2026-11-09",
-        endDate: "2026-11-15",
-        isConfirmed: true,
-        hasAlert: false,
-        items: [
-          { date: "2026-11-12", dayShort: "JEU", dayNum: "12", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-15", dayShort: "DIM", dayNum: "15", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-15", dayShort: "DIM", dayNum: "15", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-11-15", dayShort: "DIM", dayNum: "15", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
-        ]
-      },
-      {
-        weekId: "W_2026_47",
-        title: "Semaine 47 • 16 Novembre - 22 Novembre",
-        startDate: "2026-11-16",
-        endDate: "2026-11-22",
-        isConfirmed: true,
-        hasAlert: false,
-        items: [
-          { date: "2026-11-17", dayShort: "MAR", dayNum: "17", title: "Opération Nolan", time: "", hasTime: false, type: "rdv", description: "" },
-          { date: "2026-11-18", dayShort: "MER", dayNum: "18", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-18", dayShort: "MER", dayNum: "18", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-11-18", dayShort: "MER", dayNum: "18", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-11-19", dayShort: "JEU", dayNum: "19", title: "REC ?", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-22", dayShort: "DIM", dayNum: "22", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-22", dayShort: "DIM", dayNum: "22", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-11-22", dayShort: "DIM", dayNum: "22", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
-        ]
-      },
-      {
-        weekId: "W_2026_48",
-        title: "Semaine 48 • 23 Novembre - 29 Novembre",
-        startDate: "2026-11-23",
-        endDate: "2026-11-29",
-        isConfirmed: false,
-        hasAlert: false,
-        items: [
-          { date: "2026-11-23", dayShort: "LUN", dayNum: "23", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-25", dayShort: "MER", dayNum: "25", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-11-25", dayShort: "MER", dayNum: "25", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-11-25", dayShort: "MER", dayNum: "25", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
-        ]
-      },
-      {
-        weekId: "W_2026_49",
-        title: "Semaine 49 • 30 Novembre - 6 Décembre",
-        startDate: "2026-11-30",
-        endDate: "2026-12-06",
-        isConfirmed: false,
-        hasAlert: false,
-        items: [
-          { date: "2026-12-02", dayShort: "MER", dayNum: "02", title: "RH", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-12-02", dayShort: "MER", dayNum: "02", title: "Je viens chercher les enfants", time: "à 12h30", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-12-02", dayShort: "MER", dayNum: "02", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-12-06", dayShort: "DIM", dayNum: "06", title: "RC", time: "", hasTime: false, type: "repos-perso", description: "" },
-          { date: "2026-12-06", dayShort: "DIM", dayNum: "06", title: "Je viens chercher les enfants", time: "à 11h00", hasTime: true, type: "confirmed", description: "" },
-          { date: "2026-12-06", dayShort: "DIM", dayNum: "06", title: "Je ramène les enfants", time: "à 18h00", hasTime: true, type: "confirmed", description: "" }
-        ]
-      },
-      {
-        weekId: "W_2026_52",
-        title: "Semaine 52 • 21 Décembre - 27 Décembre",
-        startDate: "2026-12-21",
-        endDate: "2026-12-27",
-        isConfirmed: false,
-        hasAlert: false,
-        items: [
-          { date: "2026-12-25", dayShort: "VEN", dayNum: "25", title: "Noël", time: "", hasTime: false, type: "holiday", description: "" }
-        ]
-      },
-      {
-        weekId: "W_2026_53",
-        title: "Semaine 53 • 28 Décembre - 3 Janvier",
-        startDate: "2026-12-28",
-        endDate: "2027-01-03",
-        isConfirmed: false,
-        hasAlert: false,
-        items: [
-          { date: "2027-01-01", dayShort: "VEN", dayNum: "01", title: "FER", time: "", hasTime: false, type: "repos-perso", description: "" }
-        ]
-      }
-    ];
-  },
+  mergeExternalEvents(rawWeeks) {
+    if (!rawWeeks || !Array.isArray(rawWeeks)) return;
 
-  pad(n) { return n < 10 ? '0' + n : n; }
+    rawWeeks.forEach(w => {
+      (w.items || []).forEach(item => {
+        const title = (item.title || "").trim();
+        // Éliminer strictement tout événement "Busy" ou vide
+        if (!title || title.toLowerCase() === 'busy') return;
+
+        const dateStr = item.date;
+        if (!dateStr) return;
+
+        const upperTitle = title.toUpperCase();
+        const isRepos = item.type === 'repos-perso' || upperTitle === 'RC' || upperTitle === 'RH' || upperTitle.startsWith('REC') || upperTitle === 'FER';
+
+        if (isRepos) {
+          const exists = this.REPOS_EVENTS.some(r => r.date === dateStr);
+          if (!exists) {
+            this.REPOS_EVENTS.push({ date: dateStr, title: title });
+          }
+        } else {
+          const exists = this.CONFIRMED_EVENTS.some(ev => ev.date === dateStr && ev.title.toLowerCase() === title.toLowerCase());
+          if (!exists) {
+            this.CONFIRMED_EVENTS.push({
+              date: dateStr,
+              title: title,
+              time: item.time || "",
+              type: item.type || 'confirmed'
+            });
+          }
+        }
+      });
+    });
+  }
 };

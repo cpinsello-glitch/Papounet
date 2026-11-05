@@ -94,7 +94,7 @@ function updateTodayButton() {
  */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=14').then((reg) => {
+    navigator.serviceWorker.register('./sw.js?v=15').then((reg) => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -113,31 +113,26 @@ function initServiceWorker() {
 function loadPlanning() {
   const syncDot = document.getElementById('syncDot');
 
-  // 1. Rendu immédiat à partir du cache local ou des données initiales (0ms d'attente)
-  const cached = API.getLocalCache();
-  if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
-    rawPlanningData = cached.data;
-  } else {
-    rawPlanningData = PlanningEngine.getInitialData();
-  }
-  renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, isShieldActive));
+  // 1. Rendu immédiat selon le mode actuel (Normal ou Admin)
+  const initialPlanning = PlanningEngine.compute({ isAdmin: isShieldActive });
+  renderPlanning(initialPlanning);
 
   // 2. Synchronisation réseau en arrière-plan avec l'API
   API.getPlanning({
     onCachedData: (data) => {
       if (Array.isArray(data) && data.length > 0) {
-        rawPlanningData = data;
-        renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, isShieldActive));
+        PlanningEngine.mergeExternalEvents(data);
+        renderPlanning(PlanningEngine.compute({ isAdmin: isShieldActive }));
       }
     },
     onFreshData: (data) => {
       if (Array.isArray(data) && data.length > 0) {
-        rawPlanningData = data;
-        renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, isShieldActive));
+        PlanningEngine.mergeExternalEvents(data);
+        renderPlanning(PlanningEngine.compute({ isAdmin: isShieldActive }));
       }
     },
     onError: (err) => {
-      console.info("Utilisation des données locales/calculées.");
+      console.info("Utilisation des données locales.");
     },
     onSyncStatus: (isSyncing) => {
       if (syncDot) {
@@ -157,7 +152,7 @@ function onShieldClick() {
     isShieldActive = false;
     const btn = document.getElementById('shieldBtn');
     if (btn) btn.classList.remove('active');
-    renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, false));
+    renderPlanning(PlanningEngine.compute({ isAdmin: false }));
   } else {
     // Ouverture de la modale Admin Access
     openPinModal();
@@ -246,8 +241,8 @@ function submitPin() {
     const btn = document.getElementById('shieldBtn');
     if (btn) btn.classList.add('active');
     
-    // Rendu en Mode Admin : visibilité sur 8 mois pour les 3 calendriers avec repos en rouge
-    renderPlanning(PlanningEngine.filterWeeks(rawPlanningData, true));
+    // Rendu en Mode Admin : visibilité sur 8 mois pour tous les calendriers avec repos en rouge
+    renderPlanning(PlanningEngine.compute({ isAdmin: true }));
   } else {
     if (error) error.innerText = "Code incorrect";
     if (card) {

@@ -235,9 +235,14 @@ function buildPlanningFromEvents({ repos = [], garde = [], rdv = [] }) {
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + MONTHS_HORIZON);
 
-  // Si aucun événement n'a pu être chargé (ex: calendriers privés sans token iCal secret),
-  // utiliser les données de référence précises connues
-  const hasLoadedEvents = repos.length > 0 || garde.length > 0 || rdv.length > 0;
+  // Filtrer strictement tout événement "Busy" ou anonymisé
+  const cleanRepos = repos.filter(ev => ev.title && ev.title.toLowerCase() !== 'busy');
+  const cleanGarde = garde.filter(ev => ev.title && ev.title.toLowerCase() !== 'busy');
+  const cleanRdv = rdv.filter(ev => ev.title && ev.title.toLowerCase() !== 'busy');
+
+  // Si aucun événement valide n'a pu être chargé (ex: calendriers privés),
+  // utiliser immédiatement les données de référence précises sans inventer de "Busy"
+  const hasLoadedEvents = cleanRepos.length > 0 || cleanGarde.length > 0 || cleanRdv.length > 0;
   if (!hasLoadedEvents) {
     return getFallbackSchedule();
   }
@@ -278,7 +283,7 @@ function buildPlanningFromEvents({ repos = [], garde = [], rdv = [] }) {
       const holidayMatch = holidays.find(h => currentDTime >= h.start && currentDTime <= h.end);
 
       // 1. Repos (RC, RH, REC ?, FER...)
-      const dayRepos = repos.filter(ev => isSameDay(ev.start, currentD));
+      const dayRepos = cleanRepos.filter(ev => isSameDay(ev.start, currentD));
       dayRepos.forEach(ev => {
         const timeStr = formatStartTime(ev);
         weekData.items.push({
@@ -294,7 +299,7 @@ function buildPlanningFromEvents({ repos = [], garde = [], rdv = [] }) {
       });
 
       // 2. RV des enfants (Opération Nolan...)
-      const dayRdv = rdv.filter(ev => isSameDay(ev.start, currentD));
+      const dayRdv = cleanRdv.filter(ev => isSameDay(ev.start, currentD));
       dayRdv.forEach(ev => {
         const timeStr = formatStartTime(ev);
         weekData.items.push({
@@ -310,7 +315,7 @@ function buildPlanningFromEvents({ repos = [], garde = [], rdv = [] }) {
       });
 
       // 3. Garde enfants (Je viens chercher..., Je ramène...)
-      const dayGarde = garde.filter(ev => isSameDay(ev.start, currentD));
+      const dayGarde = cleanGarde.filter(ev => isSameDay(ev.start, currentD));
       dayGarde.forEach(ev => {
         const timeStr = formatStartTime(ev);
         weekData.items.push({
@@ -324,20 +329,6 @@ function buildPlanningFromEvents({ repos = [], garde = [], rdv = [] }) {
           description: ev.description || ""
         });
       });
-
-      // 4. Vacances scolaires si aucun autre événement ce jour
-      if (dayRepos.length === 0 && dayGarde.length === 0 && dayRdv.length === 0 && holidayMatch) {
-        weekData.items.push({
-          date: dateStr,
-          dayShort,
-          dayNum,
-          title: holidayMatch.title,
-          time: "",
-          hasTime: false,
-          type: 'holiday',
-          description: ""
-        });
-      }
     }
 
     weeks.push(weekData);
